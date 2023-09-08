@@ -176,6 +176,7 @@ print('Define the x,y,z coordinates of the dislocation line')
 zt = np.linspace(lb, ub)
 yt = zt/edge.ts[2]*edge.ts[1]
 xt = zt/edge.ts[2]*edge.ts[0]
+# In the grain system
 rtg = np.einsum('ij,...j->...i', (Ug), np.transpose([xt, yt, zt]))
 xt, yt, zt = rtg[..., 0], rtg[..., 1], rtg[..., 2]
 
