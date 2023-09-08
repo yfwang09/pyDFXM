@@ -174,19 +174,23 @@ class edge_disl(dispgrad_structure):
             bs = d['bs']
         else:
             bs = [1, -1, 0]
+        self.bs = np.divide(bs, np.linalg.norm(bs))
         # normal vector of the slip plane
         if 'ns' in d:
             ns = d['ns']
         else:
             ns = [1, 1, -1]
+        self.ns = np.divide(ns, np.linalg.norm(ns))
         # dislocation line direction
         if 'ts' in d:
             ts = d['ts']
         else:
             ts = [1, 1, 2]
-
+        self.ts = np.divide(ts, np.linalg.norm(ts))
         # get the rotation matrix for the dislocation coordinates
-        self.Ud = return_dis_grain_matrices(b=bs, n=ns, t=ts) # shape (3, 3)
+        self.Ud = return_dis_grain_matrices(b=self.bs, n=self.ns, t=self.ts) # shape (3, 3)
+
+        # Grain rotation Ug (See dispgrad_structure.__init__())
 
     def get_disl_strain_tensor(self, xd, yd):
         '''
