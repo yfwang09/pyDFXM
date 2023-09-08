@@ -83,15 +83,26 @@ import visualize_helper as vis
 print('Set up of the dislocation structure')
 input_dict = {'b': 1, 'nu': 0.334, 
               # The following defines the grain rotation (Ug, Eq.7-8)
-              'hkl': [0,0,1], # hkl diffraction plane, z dir. crystal
-              'x_c': [1,0,0], # x dir. for the crystal system (Fig.2)
-              'y_c': [0,1,0], # y dir. for the crystal system (Fig.2)
+            #   'hkl': [0,0,1], # hkl diffraction plane, z dir. crystal
+            #   'x_c': [1,0,0], # x dir. for the crystal system (Fig.2)
+            #   'y_c': [0,1,0], # y dir. for the crystal system (Fig.2)
+              'hkl' : [1,1,1],
+              'x_c' : [1,1,-2],
+              'y_c' : [-1,1,0],
               # The following defines the dislocation structure
               'bs': [1,-1, 0], # Burger's vector dir. in Miller (sample)
               'ns': [1, 1,-1], # Normal vector dir. in Miller (sample)
               'ts': [1, 1, 2], # Dislocation line dir. in Miller (sample)
              }
 print(input_dict)
+print('')
+edge = dgf.edge_disl(input_dict)
+Ud = edge.Ud
+Ug = edge.Ug
+print('Ud =')
+print(Ud)
+print('Ug =')
+print(Ug)
 
 print('Define the voxelized 3D field')
 
@@ -103,8 +114,11 @@ yg = np.linspace(lb, ub, Ngrid)         # (Ngrid, )
 zg = np.linspace(lb, ub, Ngrid)         # (Ngrid, )
 
 XX, YY, ZZ = np.meshgrid(xg, yg, zg)    # (Ngrid, Ngrid, Ngrid)
-RR = np.stack([XX,YY,ZZ], -1)           # (Ngrid, Ngrid, Ngird, 3)
-print('Grid size:', RR.shape)
+Rg = np.stack([XX,YY,ZZ], -1)           # (Ngrid, Ngrid, Ngird, 3)
+print('Grid size in the grain system:', Rg.shape)
+
+print('Convert Rg into sample system (Miller indices)')
+RR = np.einsum('ij,...j->...i', np.linalg.inv(Ug), Rg)
 
 print('Rotate the grid into the dislocation coordinate')
 Rd = np.sum(np.linalg.inv(Ud)*RR[:,:,:,None,:], axis=-1)    # (Ngrid, Ngrid, Ngrid, 3)
@@ -114,21 +128,14 @@ Rdy = Rd[..., 1]
 print('2D dislocation coordinate:', Rdx.shape, Rdy.shape)
 
 print('Calculate the strain tensor')
-edge = dgf.edge_disl(input_dict)
 Fd = edge.get_disl_strain_tensor(Rdx, Rdy)      # (Ngrid, Ngrid, Ngrid, 3, 3)
 print('Strain tensor:', Fd.shape)
 
 print('Convert back to the sample coordinate (Miller)')
-Ud = edge.Ud
-print('Ud =')
-print(Ud)
 Fs = np.einsum('ij,...jk,kl->...il', Ud, Fd, Ud.T)         # (Ngrid, Ngrid, Ngrid, 3, 3)
 print('Fs.shape =', Fs.shape)
 
 print('Convert back to the grain coordinate')
-Ug = edge.Ug
-print('Ug =')
-print(Ug)
 Fg = np.einsum('ij,...jk,kl->...il', Ug, Fs, Ug.T)         # (Ngrid, Ngrid, Ngrid, 3, 3)
 print('Fg.shape =', Fg.shape)
 
@@ -169,11 +176,13 @@ fs = 12
 
 print('Define the x,y,z coordinates of the dislocation line')
 zt = np.linspace(lb, ub)
-yt = zt/xi[2]*xi[1]
-xt = zt/xi[2]*xi[0]
+yt = zt/edge.ts[2]*edge.ts[1]
+xt = zt/edge.ts[2]*edge.ts[0]
+rtg = np.einsum('ij,...j->...i', (Ug), np.transpose([xt, yt, zt]))
+xt, yt, zt = rtg[..., 0], rtg[..., 1], rtg[..., 2]
 
-for i in range(3):
-    for j in range(3):
+for i in [2]: #range(3):
+    for j in [0]: #range(3):
         print('  visualizing %s%s component'%(subs[i], subs[j]))
         fig = plt.figure(figsize=(6, 4))
         ax = fig.add_subplot(111, projection='3d')
@@ -190,12 +199,11 @@ for i in range(3):
             surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.3)
             
         cax = fig.colorbar(surf, shrink=0.5)
-        cticks = cax.get_ticks()
-        # print(cticks)
+        cticks = cax.get_ticks()  # Always in the range of [0, 1]
         cax.set_ticks(cticks)
-        # cticklabels = cticks*
-        cax.set_ticklabels(['%.1f'%((k*2-1)*vmax) for k in cticks])
-        ax.set_title('$F_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
+        cticklabels = (cticks-cticks.min())/(cticks.max()-cticks.min())*(vmax-vmin) + vmin
+        cax.set_ticklabels(['%.1f'%k for k in cticklabels])
+        ax.set_title('$H_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
 
         ax.plot([lb, lb, ub, ub], [lb, lb, lb, lb], [ub, lb, lb, ub], 'k')
         ax.plot([lb, lb, ub, ub], [ub, lb, lb, ub], [ub, ub, ub, ub], 'k')
