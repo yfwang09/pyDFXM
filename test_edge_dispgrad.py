@@ -65,10 +65,10 @@ for i in range(2):
             ax.set_xlabel('x/b', fontsize=fs)
         if j == 0:
             ax.set_ylabel('y/b', fontsize=fs)
-        ax.set_title(r'$H_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
+        ax.set_title(r'$H^d_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
 
 fig.colorbar(cim, ax=axs)
-fig.suptitle(r'$\mathbf{H}=\mathbf{F-I}$')
+fig.suptitle(r'Dislocation coordinate system $\mathbf{H}^d=\mathbf{F}^d-\mathbf{I}$')
 plt.show()
 
 print('------------------------------------------------------------------')
@@ -78,7 +78,6 @@ print('-------- Test 3: 3D strain field of an edge dislocation ----------')
 import numpy as np
 import matplotlib.pyplot as plt
 import dispgrad_func as dgf
-import visualize_helper as vis
 
 print('Set up of the dislocation structure')
 input_dict = {'b': 1, 'nu': 0.334, 
@@ -95,7 +94,6 @@ input_dict = {'b': 1, 'nu': 0.334,
               'ts': [1, 1, 2], # Dislocation line dir. in Miller (sample)
              }
 print(input_dict)
-print('')
 edge = dgf.edge_disl(input_dict)
 Ud = edge.Ud
 Ug = edge.Ug
@@ -154,11 +152,11 @@ for iz in np.linspace(0, Ngrid - 1, 9).round().astype(int):
             ax = axs[i][j]
             im = ax.imshow(Fg_z, extent=[lb, ub, lb, ub], vmin=vmin, vmax=vmax)
             ax.set_title(r' $H^g_{%s%s}$'%(subs[i], subs[j]), loc='left', y=0.6, color='w')
-        axs[i][0].set_ylabel('y/b')
-        axs[-1][i].set_xlabel('x/b')
+        axs[i][0].set_ylabel(r'$y^g/b$')
+        axs[-1][i].set_xlabel(r'$x^g/b$')
     fig.colorbar(im, ax=axs)
-    fig.suptitle('z=%.4f'%zg[iz], fontsize=fs)
-    print('  visualizing the slice z = %.4f'%zg[iz])
+    fig.suptitle(r'Grain coordinate system, $z^g/b$=%.4f'%zg[iz], fontsize=fs)
+    print('  visualizing the slice zg = %.4f'%zg[iz])
 plt.show()
 
 print('Visualize 3D slices of each component in Hg')
@@ -181,8 +179,9 @@ xt = zt/edge.ts[2]*edge.ts[0]
 rtg = np.einsum('ij,...j->...i', (Ug), np.transpose([xt, yt, zt]))
 xt, yt, zt = rtg[..., 0], rtg[..., 1], rtg[..., 2]
 
-for i in [2]: #range(3):
-    for j in [0]: #range(3):
+print('Visualize the 3D slices')
+for i in range(3):
+    for j in range(3):
         print('  visualizing %s%s component'%(subs[i], subs[j]))
         fig = plt.figure(figsize=(6, 4))
         ax = fig.add_subplot(111, projection='3d')
@@ -203,13 +202,13 @@ for i in [2]: #range(3):
         cax.set_ticks(cticks)
         cticklabels = (cticks-cticks.min())/(cticks.max()-cticks.min())*(vmax-vmin) + vmin
         cax.set_ticklabels(['%.1f'%k for k in cticklabels])
-        ax.set_title('$H_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
+        ax.set_title(r'Grain coordinate system $H^g_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
 
         ax.plot([lb, lb, ub, ub], [lb, lb, lb, lb], [ub, lb, lb, ub], 'k')
         ax.plot([lb, lb, ub, ub], [ub, lb, lb, ub], [ub, ub, ub, ub], 'k')
-        ax.set_xlabel('x/b', fontsize=fs)
-        ax.set_ylabel('y/b', fontsize=fs)
-        ax.set_zlabel('z/b', fontsize=fs)
+        ax.set_xlabel(r'$x^g/b$', fontsize=fs)
+        ax.set_ylabel(r'$y^g/b$', fontsize=fs)
+        ax.set_zlabel(r'$z^g/b$', fontsize=fs)
 plt.show()
 
 print('------------------------------------------------------------------')
