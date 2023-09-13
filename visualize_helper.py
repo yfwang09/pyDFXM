@@ -12,16 +12,20 @@ Visualization helper functions for debugging and testing.
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import Normalize
 
-def plot_2d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], nslice=9, show=True):
-    '''Plot 2D slices in z direction. (unfinished)
+
+def plot_2d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], vmin=0, vmax=1, nslice=9, show=True):
+    '''Plot 2D slices in z direction.
 
     Parameters
     ----------
     F : ndarray
         3D array to be plotted.
     extent : list, optional
-        Extent of the plot. The default is [-1, 1, -1, 1, -1, 1].
+        Extent of the plot. The default is [-1, 1, -1, 1, -1, 1]. The last two are not used.
+    vmin, vmax : float, optional
+        Extent of the color value, by default [0, 1]
     nslice : int, optional
         Number of slices to plot. The default is 9.
     show : bool, optional
@@ -41,13 +45,73 @@ def plot_2d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], nslice=9, show=True):
         ind, iz = k-1, iz_slices[k]
         i, j = ind//3, ind%3
         ax = axs[i][j]
-        imax = ax.imshow(F[:,:,iz], extent=extent[:4], vmin=extent[4], vmax=extent[5])
+        imax = ax.imshow(F[:,:,iz], extent=extent[:4], vmin=vmin, vmax=vmax)
         axs[i][0].set_ylabel(r'$y^g/b$')
         axs[-1][i].set_xlabel(r'$x^g/b$')
     fig.colorbar(imax, ax=axs)
     if show:
         plt.show()
     return (fig, axs)
+
+def plot_3d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], vmin=0, vmax=1, nslice=9, fs=12, show=True):
+    '''Plot 2D slices in z direction. (unfinished)
+
+    Parameters
+    ----------
+    F : ndarray
+        3D array to be plotted.
+    extent : list, optional
+        Extent of the plot. The default is [-1, 1, -1, 1, -1, 1].
+    vmin, vmax : float, optional
+        Extent of the color value, by default [0, 1]
+    nslice : int, optional
+        Number of slices to plot. The default is 9.
+    fs : int, optional
+        Fontsize of the labels and titles
+    show : bool, optional
+        Whether to show the plot. The default is True.
+
+    Returns
+    -------
+    figax : tuple
+        Figure and axes of the plot.
+    '''
+    npoints1, npoints2, npoints3 = F.shape
+    lbx, ubx, lby, uby, lbz, ubz = tuple(extent)
+    iz_slices = np.linspace(0, npoints3-1, nslice+2).astype(int)
+    xg = np.linspace(lbx, ubx, npoints1)
+    yg = np.linspace(lby, uby, npoints2)
+    zg = np.linspace(lbz, ubz, npoints3)
+    xx, yy = np.meshgrid(xg, yg)
+    # subs = ['x', 'y', 'z']
+
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot([lbx, lbx, ubx, ubx], [uby, uby, uby, uby], [lbz, ubz, ubz, lbz], 'k')
+    ax.plot([lbx, lbx, ubx, ubx], [lby, uby, uby, lby], [lbz, lbz, lbz, lbz], 'k')
+    
+    for iz in iz_slices[1:-1]:
+        zloc = zg[iz]                  # z location of the plane
+        Fg_z = F[:, :, iz]             # value of the plane
+        zval = np.clip(Fg_z, vmin, vmax)
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.3)
+        
+    cax = fig.colorbar(surf, shrink=0.5)
+    cticks = cax.get_ticks()  # Always in the range of [0, 1]
+    cax.set_ticks(cticks)
+    cticklabels = (cticks-cticks.min())/(cticks.max()-cticks.min())*(vmax-vmin) + vmin
+    cax.set_ticklabels(['%.1f'%k for k in cticklabels])
+    # ax.set_title(r'Grain coordinate system $H^g_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
+
+    ax.plot([lbx, lbx, ubx, ubx], [lby, lby, lby, lby], [ubz, lbz, lbz, ubz], 'k')
+    ax.plot([lbx, lbx, ubx, ubx], [uby, lby, lby, uby], [ubz, ubz, ubz, ubz], 'k')
+    ax.set_xlabel(r'$x^g/b$', fontsize=fs)
+    ax.set_ylabel(r'$y^g/b$', fontsize=fs)
+    ax.set_zlabel(r'$z^g/b$', fontsize=fs)
+    if show:
+        plt.show()
+    return (fig, ax)
 
 def visualize_res_fn_slice_z(d, Res_qi, plot_2d=True, plot_3d=True, show=True):
     '''Visualize the resolution function in 2D and 3D slices in z direction.

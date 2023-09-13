@@ -160,8 +160,8 @@ for iz in np.linspace(0, Ngrid - 1, 9).round().astype(int):
     print('  visualizing the slice zg = %.4f'%zg[iz])
 plt.show()
 
-print('Test the visualization helper function')
-figax = vis.plot_2d_slice_z(Hg[:, :, :, 0, 2], show=False)
+print('Test the visualization helper function plot_2d_slice_z()')
+figax = vis.plot_2d_slice_z(Hg[:, :, :, 0, 2], vmin=vmin, vmax=vmax, show=False)
 figax[0].suptitle(r'Grain coordinate system, $H^g_{xz}$', fontsize=fs)
 plt.show()
 
@@ -216,6 +216,13 @@ for i in range(3):
         ax.set_xlabel(r'$x^g/b$', fontsize=fs)
         ax.set_ylabel(r'$y^g/b$', fontsize=fs)
         ax.set_zlabel(r'$z^g/b$', fontsize=fs)
+plt.show()
+
+print('Test the visualization helper function plot_3d_slice_z')
+figax = vis.plot_3d_slice_z(Hg[:, :, :, 0, 2], extent=[lb, ub, lb, ub, lb, ub], vmin=vmin, vmax=vmax, nslices=5, fs=fs, show=False)
+fig, ax = figax
+ax.plot(xt, yt, zt, 'k', lw=2)
+ax.set_title(r'Grain coordinate system, $H^g_{xz}$', fontsize=fs)
 plt.show()
 
 print('------------------------------------------------------------------')
