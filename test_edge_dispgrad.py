@@ -78,6 +78,7 @@ print('-------- Test 3: 3D strain field of an edge dislocation ----------')
 import numpy as np
 import matplotlib.pyplot as plt
 import dispgrad_func as dgf
+import visualize_helper as vis
 
 print('Set up of the dislocation structure')
 input_dict = {'b': 1, 'nu': 0.334, 
@@ -157,6 +158,11 @@ for iz in np.linspace(0, Ngrid - 1, 9).round().astype(int):
     fig.colorbar(im, ax=axs)
     fig.suptitle(r'Grain coordinate system, $z^g/b$=%.4f'%zg[iz], fontsize=fs)
     print('  visualizing the slice zg = %.4f'%zg[iz])
+plt.show()
+
+print('Test the visualization helper function')
+figax = vis.plot_2d_slice_z(Hg[:, :, :, 0, 2], show=False)
+figax[0].suptitle(r'Grain coordinate system, $H^g_{xz}$', fontsize=fs)
 plt.show()
 
 print('Visualize 3D slices of each component in Hg')
