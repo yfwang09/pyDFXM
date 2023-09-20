@@ -20,6 +20,38 @@ import os
 import numpy as np
 # import displacement_grad_helper as dgh
 
+def default_dispgrad_dict(dispgrad_type='simple_shear'):
+    '''Generate a default displacement gradient dictionary'''
+    dispgrad_dict = {
+    # Materials properties
+    'b': 1, 'nu': 0.334,
+    # Grain rotation (Ug, Eq. 7-8)
+    'x_c': [1,0,0],     # x dir. for the crystal system (Fig.2)
+    'y_c': [0,1,0],     # y dir. for the crystal system (Fig.2)
+    'hkl': [0,0,1],     # hkl diffraction plane, z dir. crystal
+    ## 'Ug': np.identity(3), # or directly define a rotation matrix
+    # Displacement gradient (strain field) type
+    'dispgrad_type': dispgrad_type,
+    ## 'dispgrad_type': 'simple_shear', # simple shear in a sphere
+    ## 'dispgrad_type': 'edge_disl', # single edge dislocation case
+    ## 'dispgrad_type': 'disl_network', # dislocation network (todo)
+    }
+    if dispgrad_dict['dispgrad_type'] == 'simple_shear':
+        dispgrad_dict['R0'] = dispgrad_dict['b']*10000
+        dispgrad_dict['components'] = (2, 0)
+        dispgrad_dict['strain_magnitude'] = 5e-4
+    elif dispgrad_dict['dispgrad_type'] == 'edge_disl':
+        dispgrad_dict['bs'] = [1,-1, 0] # Burger's vector dir. in Miller (sample)
+        dispgrad_dict['ns'] = [1, 1,-1] # Normal vector dir. in Miller (sample)
+        dispgrad_dict['ts'] = [1, 1, 2] # Dislocation line dir. in Miller (sample)
+    elif dispgrad_dict['dispgrad_type'] == 'disl_network':
+        # print('dispgrad_type == disl_network is not implemented')
+        pass
+    else:
+        raise NotImplementedError('dispgrad_type == %s is not implemented'%dispgrad_dict['dispgrad_type'])
+
+    return dispgrad_dict
+
 def return_dis_grain_matrices_all():
     dis_grain_all = np.zeros([3, 3, 12])
     dis_grain_all[:,:,0] = [[1/np.sqrt(2), 1/np.sqrt(2), 0], [-1/np.sqrt(3), 1/np.sqrt(3), 1/np.sqrt(3)],\
@@ -88,7 +120,7 @@ def return_dis_grain_matrices(b=None, n=None, t=None):
 
 class dispgrad_structure():
     ''' Displacement gradient function class. '''
-    def __init__(self, d):
+    def __init__(self, d=default_dispgrad_dict()):
         self.d = d              # input dictionary
 
         # Burger's vector magnitude
@@ -123,20 +155,25 @@ class dispgrad_structure():
 
 class simple_shear(dispgrad_structure):
     ''' Wrapper for the simple shear deformation gradient function. '''
-    def __init__(self, d):
+    def __init__(self, d=default_dispgrad_dict('simple_shear')):
         super().__init__(d)
+        errorlist = []
         if 'R0' in d:
             self.R0 = d['R0']
         else:
-            self.R0 = 15000*self.b              # unit: b
+            errorlist.append('R0')
         if 'components' in d:
             self.components = d['components']
         else:
-            self.components = (2, 0)
+            errorlist.append('components')
         if 'strain_magnitude' in d:
             self.strain_magnitude = d['strain_magnitude']
         else:
-            self.strain_magnitude = 5e-4
+            errorlist.append('strain_magnitude')
+        
+        if len(errorlist) > 0:
+            errorstr = ', '.join(errorlist)
+            raise ValueError("simple_shear.__init__(): please define %s in d:dict"%errorstr)
         
     def Fg(self, xg, yg, zg):
         ''' Returns the displacement gradient tensor for the pure shear case.
@@ -166,31 +203,37 @@ class simple_shear(dispgrad_structure):
 
 class edge_disl(dispgrad_structure):
     ''' Wrapper for the edge dislocation deformation gradient function. '''
-    def __init__(self, d):
+    def __init__(self, d=default_dispgrad_dict('edge_disl')):
         super().__init__(d)
 
+        errorlist = []
         # Burger's vector
         if 'bs' in d:
             bs = d['bs']
+            self.bs = np.divide(bs, np.linalg.norm(bs))
         else:
-            bs = [1, -1, 0]
-        self.bs = np.divide(bs, np.linalg.norm(bs))
+            errorlist.append('bs')
         # normal vector of the slip plane
         if 'ns' in d:
             ns = d['ns']
+            self.ns = np.divide(ns, np.linalg.norm(ns))
         else:
-            ns = [1, 1, -1]
-        self.ns = np.divide(ns, np.linalg.norm(ns))
+            errorlist.append('ns')
         # dislocation line direction
         if 'ts' in d:
             ts = d['ts']
+            self.ts = np.divide(ts, np.linalg.norm(ts))
         else:
-            ts = [1, 1, 2]
-        self.ts = np.divide(ts, np.linalg.norm(ts))
+            errorlist.append('ts')
+
+        if len(errorlist) > 0:
+            errorstr = ', '.join(errorlist)
+            raise ValueError("edge_disl.__init__(): please define %s in d:dict"%errorstr)
+
         # get the rotation matrix for the dislocation coordinates
         self.Ud = return_dis_grain_matrices(b=self.bs, n=self.ns, t=self.ts) # shape (3, 3)
 
-        # Grain rotation Ug (See dispgrad_structure.__init__())
+        # Define grain rotation Ug (done in dispgrad_structure.__init__())
 
     def get_disl_strain_tensor(self, xd, yd):
         '''
@@ -262,7 +305,7 @@ class edge_disl(dispgrad_structure):
 
 class disl_network(dispgrad_structure):
     ''' Wrapper for the dislocation network deformation gradient function. '''
-    def __init__(self, d):
+    def __init__(self, d=default_dispgrad_dict('disl_network')):
         super().__init__(d)
 
 

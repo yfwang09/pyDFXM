@@ -95,7 +95,7 @@ def plot_3d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], vmin=0, vmax=1, nslice=9, f
         Fg_z = F[:, :, iz]             # value of the plane
         zval = np.clip(Fg_z, vmin, vmax)
         norm = Normalize(vmin=vmin, vmax=vmax)
-        surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.3)
+        surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.5)
         
     cax = fig.colorbar(surf, shrink=0.5)
     cticks = cax.get_ticks()  # Always in the range of [0, 1]

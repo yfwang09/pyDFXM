@@ -40,7 +40,12 @@ print('Create the strain field of an edge dislocation')
 
 xd = np.linspace(-1, 1, 100)
 yd = np.linspace(-1, 1, 100)
-input_dict = {'b': 1, 'nu': 0.334}
+input_dict = {
+    'b': 1, 'nu': 0.334,
+    'bs': [1,-1, 0], # Burger's vector dir. in Miller (sample coord)
+    'ns': [1, 1,-1], # Normal vector dir. in Miller (sample coord)
+    'ts': [1, 1, 2], # Dislocation line dir. in Miller (sample coord)
+}
 print(input_dict)
 
 edge = dgf.edge_disl(input_dict)
@@ -202,7 +207,7 @@ for i in range(3):
             zval = np.clip(Fg_z, vmin, vmax)
             # print(zval.min(), zval.max())
             norm = Normalize(vmin=vmin, vmax=vmax)
-            surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.3)
+            surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.5)
             
         cax = fig.colorbar(surf, shrink=0.5)
         cticks = cax.get_ticks()  # Always in the range of [0, 1]
@@ -219,7 +224,7 @@ for i in range(3):
 plt.show()
 
 print('Test the visualization helper function plot_3d_slice_z')
-figax = vis.plot_3d_slice_z(Hg[:, :, :, 0, 2], extent=[lb, ub, lb, ub, lb, ub], vmin=vmin, vmax=vmax, nslices=5, fs=fs, show=False)
+figax = vis.plot_3d_slice_z(Hg[:, :, :, 0, 2], extent=[lb, ub, lb, ub, lb, ub], vmin=vmin, vmax=vmax, nslice=5, fs=fs, show=False)
 fig, ax = figax
 ax.plot(xt, yt, zt, 'k', lw=2)
 ax.set_title(r'Grain coordinate system, $H^g_{xz}$', fontsize=fs)
