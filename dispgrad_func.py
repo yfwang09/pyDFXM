@@ -12,8 +12,8 @@ General form of the displacement gradient function:
 
 Fg_test: pure shear in a sphere
 Fg_disl: single edge dislocation
-Fg_load: load a displacement gradient field from file
-Fg_disl_network: dislocation network
+Fg_load: load a displacement gradient field from file (todo)
+Fg_disl_network: dislocation network (todo)
 """
 
 import os
