@@ -9,8 +9,10 @@ Author: yfwang09
 
 import numpy as np
 from forward_model import DFXM_forward
+from visualize_helper import visualize_res_fn_slice_z
 
 # Test the resolution function
 fwd = DFXM_forward()
 Res_qi, saved_q = fwd.res_fn(timeit=True)
 
+visualize_res_fn_slice_z(fwd.d, Res_qi)

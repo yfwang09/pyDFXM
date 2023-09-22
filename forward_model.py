@@ -39,16 +39,6 @@ default_forward_dict = {
     'Nrays': default_Nrays,
     'q1_range': default_qrange, 'q2_range': default_qrange, 'q3_range': default_qrange, 
     'npoints1': default_ngrids, 'npoints2': default_ngrids, 'npoints3': default_ngrids,
-    # Setup of the Crystal system
-    # 'hkl' : [2, -2, 0], # Miller indices for the diffraction plane (this is zlab for the crystal orientation)
-    # 'xlab': [0, 0, 2], # Crystal orientation of the x direction in the lab system assuming lab and grain are the same
-    # 'ylab': [-2, -2, 0], #Crystal orientation of the y direction in the lab system assuming lab and grain are the same
-    # 'ns' : [1, 1, -1], # normal vector of the slip plane
-    # 'bs' : [1, -1, 0], # Burgers vector of the slip system
-    # 'ts' : [1, 1, 2],  # dislocation line direction
-    # 'b' : -2.86e-10, # 0.3057, # Burger's magnitude (unitless)
-    # 'nu' : 0.3, # Poisson's ratio
-    # Parameters for resolution function calculation
 }
 
 default_forward_dict['mu'] = np.deg2rad(default_forward_dict['two_theta'])      # in rad; base tilt
