@@ -11,51 +11,55 @@ General form of the DFXM forward model
 import time
 import numpy as np
 from scipy.stats import gaussian_kde, truncnorm
-from sympy import N
+import matplotlib.pyplot as plt
 
-default_Nrays = 10000000
-default_qrange = 8e-3
-default_ngrids = 40
+def default_forward_dict():
+    '''Generate a default forward model dictionary'''
+    default_Nrays = 10000000
+    default_qrange = 8e-3
+    default_ngrids = 40
 
-default_forward_dict = {
-    ################## Material and Grain setup #######################
-    # Setup of the grain rotation (Ug, Eq. 7-8)
-    'x_c': [1,0,0],             # x dir. for the crystal system (Fig.2)
-    'y_c': [0,1,0],             # y dir. for the crystal system (Fig.2)
-    'hkl': [0,0,1],             # hkl diffraction plane, z dir. crystal
-    ## 'Ug': np.identity(3),    # or directly define a rotation matrix
-    'two_theta' : 20.73,        # 2theta for Al-(002) (deg)
-    'b': 2.86e-10,              # Burger's vector magnitude (scaling)
-    ###################################################################
-    'psize' : 75e-9,            # pixel size (m)
-    # Setup of the Optics (default from Dresselhaus-Marais et al., 2021)
-    # Note: 2.355 factor if converting fwhm -> rms
-    'zeta_v_rms' : 0.53e-3/2.35,# incident beam vertical variance (rad)
-    'zeta_h_rms': 1e-5/2.35,    # incident beam horizontal variance (rad) 
-    'NA_rms' : 7.31e-4/2.35,    # Numerical Aperture variance (rad)
-    'eps_rms' : 0.00006,        # incident x-ray energy variance (eV)
-    'zl_rms' : 0.6e-6/2.35,     # Gaussian beam width variance (m)
-    'D' : 2*np.sqrt(5e-5*1e-3), # physical aperture of objective (m)
-    'd1' : 0.274,               # sample-objective distance (m)
-    # Setup of the Ghoniometer
-    'TwoDeltaTheta' : 0,        # additional rotation of the 2theta arm
-    'phi' : -.000,              # in rad, sample tilt angle 1 (rocking)
-    'chi' : 0,                  # in rad, sample tilt angle 2 (rolling)
-    'omega' : 0,                # in rad, sample rotation (in-plane)
-    # Parameters for reciprocal space resolution function
-    'Nrays': default_Nrays,
-    'q1_range': default_qrange, 'q2_range': default_qrange, 'q3_range': default_qrange, 
-    'npoints1': default_ngrids, 'npoints2': default_ngrids, 'npoints3': default_ngrids,
-}
-
-default_forward_dict['mu'] = np.deg2rad(default_forward_dict['two_theta'])      # in rad; base tilt
-default_forward_dict['theta'] = np.deg2rad(default_forward_dict['two_theta']/2) # in rad
+    forward_dict = {
+        ################## Material and Grain setup #######################
+        # Setup of the grain rotation (Ug, Eq. 7-8)
+        'x_c': [1,0,0],             # x dir. for the crystal system (Fig.2)
+        'y_c': [0,1,0],             # y dir. for the crystal system (Fig.2)
+        'hkl': [0,0,1],             # hkl diffraction plane, z dir. crystal
+        ## 'Ug': np.identity(3),    # or directly define a rotation matrix
+        'two_theta' : 20.73,        # 2theta for Al-(002) (deg)
+        'b': 2.86e-10,              # Burger's vector magnitude (scaling)
+        ###################################################################
+        # Parameters for reciprocal space resolution function
+        'Nrays': default_Nrays,
+        'q1_range': default_qrange, 'npoints1': default_ngrids,
+        'q2_range': default_qrange, 'npoints2': default_ngrids,
+        'q3_range': default_qrange, 'npoints3': default_ngrids,
+        ###################################################################
+        'psize' : 75e-9,            # pixel size (m)
+        # Setup of the Optics (default from Dresselhaus-Marais et al., 2021)
+        # Note: 2.355 factor if converting fwhm -> rms
+        'zeta_v_rms' : 0.53e-3/2.35,# incident beam vertical variance (rad)
+        'zeta_h_rms': 1e-5/2.35,    # incident beam horizontal variance (rad) 
+        'NA_rms' : 7.31e-4/2.35,    # Numerical Aperture variance (rad)
+        'eps_rms' : 0.00006,        # incident x-ray energy variance (eV)
+        'zl_rms' : 0.6e-6/2.35,     # Gaussian beam width variance (m)
+        'D' : 2*np.sqrt(5e-5*1e-3), # physical aperture of objective (m)
+        'd1' : 0.274,               # sample-objective distance (m)
+        # Setup of the Ghoniometer
+        'TwoDeltaTheta' : 0,        # additional rotation of the 2theta arm
+        'phi' : -.000,              # in rad, sample tilt angle 1 (rocking)
+        'chi' : 0,                  # in rad, sample tilt angle 2 (rolling)
+        'omega' : 0,                # in rad, sample rotation (in-plane)
+    }
+    forward_dict['mu'] = np.deg2rad(forward_dict['two_theta'])      # in rad
+    forward_dict['theta'] = np.deg2rad(forward_dict['two_theta']/2) # in rad
+    return forward_dict
 
 class DFXM_forward():
     def __init__(self, d=default_forward_dict):
         self.d = d          # Input dictionary
 
-    def res_fn(self, saved_q=None, timeit=False):
+    def res_fn(self, saved_q=None, plot=False, timeit=False):
         ''' Compute the resolution function for DFXM
             The objective is modelled as an isotropic Gaussian with an NA and in addition a square phyical aperture of d side length D. 
             
@@ -65,6 +69,8 @@ class DFXM_forward():
         ----------
         saved_q : tuple, default None
             if not None, the qvectors will be loaded from saved_q
+        plot : bool, default False
+            whether to plot the Monte Carlo ray-tracing of the resolution function
         timeit : bool, default False
             if True, print the time for each step
 
@@ -105,9 +111,10 @@ class DFXM_forward():
             if timeit:
                 print('Time for sampling rays: {:.2f} s'.format(time.time()-tic))
 
-            # Compute q_{rock,roll,par}, the phi, chi shifts are not included for resolution function
-            qrock = -zeta_v/2 - delta_2theta/2 # + d['phi']
-            qroll = -zeta_h/(2*np.sin(d['theta'])) - xi/(2*np.sin(d['theta'])) # + d['chi']
+            # Compute q_{rock,roll,par},
+            # phi&chi shifts are for testing only - NEVER change them when calculating res_fn!
+            qrock = -zeta_v/2 - delta_2theta/2 + d['phi']
+            qroll = -zeta_h/(2*np.sin(d['theta'])) - xi/(2*np.sin(d['theta'])) + d['chi']
             qpar = eps + (1/np.tan(d['theta']))*(-zeta_v/2 + delta_2theta/2)
 
             # Convert from crystal to imaging system
@@ -161,10 +168,48 @@ class DFXM_forward():
         if timeit:
             print('Time for voxelizing: {:.2f} s'.format(time.time() - tic))
 
+        if plot:
+            plot_half_range = 0.0045
+            _, ax = self.plot_res(qrock, qroll, qpar, plot_half_range=plot_half_range, show=False)
+            ax.set_xlabel(r'$\hat{q}_{rock}$')
+            ax.set_ylabel(r'$\hat{q}_{roll}$')
+            ax.set_zlabel(r'$\hat{q}_{par}$')
+            ax.set_title('Crystal system')
+            plt.show()
+            _, ax = self.plot_res(qrock_prime, qroll, q2theta, plot_half_range=plot_half_range, show=False)
+            ax.set_xlabel(r'$\hat{q}_{rock}^\prime$')
+            ax.set_ylabel(r'$\hat{q}_{roll}$')
+            ax.set_zlabel(r'$\hat{q}_{2\theta}$')
+            ax.set_title('Imaging system')
+            plt.show()
+            
         if saved_q is None:
             return Res_qi, (qrock_prime, qroll, q2theta)
         else:
             return Res_qi, ratio_outside
+
+    def plot_res(self, qrock, qroll, qpar, plot_half_range=4.5e-3, show=True):
+        Nrays = len(qrock)
+
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        Nskip = Nrays//10000 + 1
+        
+        qrock = qrock[::Nskip]
+        qroll = qroll[::Nskip]
+        qpar = qpar[::Nskip]
+        ax.plot(qrock, qroll, qpar, 'ok', markersize=1)
+        ax.plot(np.zeros_like(qrock)-plot_half_range, qroll, qpar, 'o', markersize=1)
+        ax.plot(qrock, np.zeros_like(qroll)+plot_half_range, qpar, 'o', markersize=1)
+        ax.plot(qrock, qroll, np.zeros_like(qpar)-plot_half_range, 'o', markersize=1)
+        ax.set_xlim([-plot_half_range, plot_half_range])
+        ax.set_ylim([-plot_half_range, plot_half_range])
+        ax.set_zlim([-plot_half_range, plot_half_range])
+        if show:
+            plt.show()
+        else:
+            return fig, ax
 
     def get_rot_matrices(self, chi=None, phi=None, mu=None):
         '''Returns rotation matrices reuired to go from sample to lab frame
