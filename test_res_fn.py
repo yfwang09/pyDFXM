@@ -7,11 +7,13 @@ Author: yfwang09
 
 '''
 
+import os
 import numpy as np
 import forward_model as fwd
 import visualize_helper as vis
 
-res_save_file = 'Res_qi_Al001.npz'
+os.makedirs('data', exist_ok=True)
+res_save_file = os.path.join('data', 'Res_qi_Al001.npz')
 
 print('1. Test the resolution function in Poulsen et al. (2021)')
 
