@@ -13,7 +13,8 @@ import forward_model as fwd
 import visualize_helper as vis
 
 os.makedirs('data', exist_ok=True)
-res_save_file = os.path.join('data', 'Res_qi_Al001.npz')
+res_save_file = os.path.join('data', 'Res_qi_Al_001.npz')
+saved_q_file = os.path.join('data', 'saved_q_Al_001.npz')
 
 print('1. Test the resolution function in Poulsen et al. (2021)')
 
@@ -36,13 +37,14 @@ fwd_model = fwd.DFXM_forward(forward_dict)
 Res_qi, saved_q = fwd_model.res_fn(timeit=True)
 
 vis.visualize_res_fn_slice_z(fwd_model.d, Res_qi)
-np.savez_compressed(res_save_file, Res_qi=Res_qi, saved_q=saved_q)
+np.savez_compressed(res_save_file, Res_qi=Res_qi)
+np.savez_compressed(saved_q_file, saved_q=saved_q)
 
 print('3. Test the resolution function of our own with saved q vectors. (fast)')
 # Test the resolution function
 forward_dict = fwd.default_forward_dict()
 fwd_model = fwd.DFXM_forward(forward_dict)
-saved_q = np.load(res_save_file)['saved_q']
+saved_q = np.load(saved_q_file)['saved_q']
 Res_qi, _ = fwd_model.res_fn(saved_q=saved_q, timeit=True)
 
 vis.visualize_res_fn_slice_z(fwd_model.d, Res_qi)
