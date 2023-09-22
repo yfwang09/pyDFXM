@@ -18,6 +18,15 @@ default_qrange = 8e-3
 default_ngrids = 40
 
 default_forward_dict = {
+    ################## Material and Grain setup #######################
+    # Setup of the grain rotation (Ug, Eq. 7-8)
+    'x_c': [1,0,0],             # x dir. for the crystal system (Fig.2)
+    'y_c': [0,1,0],             # y dir. for the crystal system (Fig.2)
+    'hkl': [0,0,1],             # hkl diffraction plane, z dir. crystal
+    ## 'Ug': np.identity(3),    # or directly define a rotation matrix
+    'two_theta' : 20.73,        # 2theta for Al-(002) (deg)
+    'b': 2.86e-10,              # Burger's vector magnitude (scaling)
+    ###################################################################
     'psize' : 75e-9,            # pixel size (m)
     # Setup of the Optics (default from Dresselhaus-Marais et al., 2021)
     # Note: 2.355 factor if converting fwhm -> rms
@@ -26,7 +35,6 @@ default_forward_dict = {
     'NA_rms' : 7.31e-4/2.35,    # Numerical Aperture variance (rad)
     'eps_rms' : 0.00006,        # incident x-ray energy variance (eV)
     'zl_rms' : 0.6e-6/2.35,     # Gaussian beam width variance (m)
-    'two_theta' : 20.73,        # 2theta for Al-(002) (deg)
     'D' : 2*np.sqrt(5e-5*1e-3), # physical aperture of objective (m)
     'd1' : 0.274,               # sample-objective distance (m)
     # Setup of the Ghoniometer
@@ -34,7 +42,6 @@ default_forward_dict = {
     'phi' : -.000,              # in rad, sample tilt angle 1 (rocking)
     'chi' : 0,                  # in rad, sample tilt angle 2 (rolling)
     'omega' : 0,                # in rad, sample rotation (in-plane)
-    'b': 2.86e-10,              # Burger's vector magnitude (scaling)
     # Parameters for reciprocal space resolution function
     'Nrays': default_Nrays,
     'q1_range': default_qrange, 'q2_range': default_qrange, 'q3_range': default_qrange, 
