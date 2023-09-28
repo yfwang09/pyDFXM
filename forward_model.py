@@ -29,13 +29,16 @@ def default_forward_dict():
         'two_theta' : 20.73,        # 2theta for Al-(002) (deg)
         'b': 2.86e-10,              # Burger's vector magnitude (scaling)
         ###################################################################
+        # Parameters for the forward model
+        'psize' : 75e-9,            # pixel size (m)
+        'Npixels' : [50, 45, 40],   # number of pixels in a half space
+        ###################################################################
         # Parameters for reciprocal space resolution function
         'Nrays': default_Nrays,
         'q1_range': default_qrange, 'npoints1': default_ngrids,
         'q2_range': default_qrange, 'npoints2': default_ngrids,
         'q3_range': default_qrange, 'npoints3': default_ngrids,
         ###################################################################
-        'psize' : 75e-9,            # pixel size (m)
         # Setup of the Optics (default from Dresselhaus-Marais et al., 2021)
         # Note: 2.355 factor if converting fwhm -> rms
         'zeta_v_rms' : 0.53e-3/2.35,# incident beam vertical variance (rad)
@@ -47,7 +50,7 @@ def default_forward_dict():
         'd1' : 0.274,               # sample-objective distance (m)
         # Setup of the Ghoniometer
         'TwoDeltaTheta' : 0,        # additional rotation of the 2theta arm
-        'phi' : -.000,              # in rad, sample tilt angle 1 (rocking)
+        'phi' : 0,                  # in rad, sample tilt angle 1 (rocking)
         'chi' : 0,                  # in rad, sample tilt angle 2 (rolling)
         'omega' : 0,                # in rad, sample rotation (in-plane)
     }
@@ -211,6 +214,159 @@ class DFXM_forward():
         else:
             return fig, ax
 
+    def forward(self, Fg_fun, Res_qi=None, timeit=False):
+        '''Generate voxelized intensities and the image for DFXM
+
+        Parameters
+        ----------
+        d : dict
+            dictionary for dislocation and instrumental settings
+        Fg_fun : function handle
+            function for calculating the displacement gradient tensor
+        Res_qi : array, default None
+            pre-computed Res_qi, if None, the Res_qi is calculated
+        timeit : bool
+            whether print the timing info of the algorithm
+
+        Returns
+        -------
+        im : array of (Npixels, Npixels)
+            image of DFXM given the strain tensor
+        qi_field : array of (Npixels, Npixels, Npixels, 3)
+            3D voxelized field of intensities
+        '''
+        d = self.d
+        if type(d['Npixels']) is int:
+            Nx = Ny = Nz = d['Npixels']
+        else:
+            Nx, Ny, Nz = d['Npixels']
+        Nsub = 2                # multiply 2 to avoid sampling the 0 point, make the grids symmetric over 0
+        NNx, NNy, NNz = Nsub*Nx, Nsub*Ny, Nsub*Nz
+        # NN = Nsub*Npixels     # NN^3 is the total number of "rays" (voxels?) probed in the sample
+        
+        # INPUT instrumental settings, related to direct space resolution function
+        psize = d['psize']   # pixel size in units of m, in the object plane
+        zl_rms = d['zl_rms'] # rms value of Gaussian beam profile, in m, centered at 0
+        theta_0 = np.deg2rad(d['two_theta']/2) # in rad
+        v_hkl = d['hkl']
+        TwoDeltaTheta = d['TwoDeltaTheta']
+        if 'Usg' in d:          # Usually using single crystal, U = I
+            U = d['Usg']
+        else:
+            U = np.eye(3)
+        if 'phi' in d:
+            phi = d['phi']
+        else:
+            phi = 0
+        if 'chi' in d:
+            chi = d['chi']
+        else:
+            chi = 0
+
+        if timeit: 
+            tic = time.time()
+
+        # Calculate reciprocal-space resolusion function
+        if Res_qi is None:
+            Res_qi, _ = self.res_fn(plot=False, timeit=timeit)
+
+        # Define the grid of points in the lab system (xl, yl, zl)
+        theta = theta_0 + TwoDeltaTheta
+        yl_start = -psize*Ny/2 + psize/(2*Nsub) # start in yl direction, in units of m, centered at 0
+        yl_step = psize/Nsub
+        xl_start = ( -psize*Nx/2 + psize/(2*Nsub) )/np.tan(2*theta) # start in xl direction, in m, for zl=0
+        xl_step = psize/Nsub/np.tan(2*theta)
+        zl_start = -0.5*zl_rms*6 # start in zl direction, in m, for zl=0
+        zl_step = zl_rms*6/(NNz-1)
+
+        qi1_start, qi1_step = -d['q1_range']/2, d['q1_range']/(d['npoints1']-1)
+        qi2_start, qi2_step = -d['q2_range']/2, d['q2_range']/(d['npoints2']-1)
+        qi3_start, qi3_step = -d['q3_range']/2, d['q3_range']/(d['npoints3']-1)
+
+        Q_norm = np.linalg.norm(v_hkl)  # We have assumed B_0 = I (?)
+        q_hkl = v_hkl/Q_norm
+
+        # Define the rotation matrices
+        mu = theta_0
+        M = [[np.cos(mu), 0, np.sin(mu)],
+            [0, 1, 0],
+            [-np.sin(mu), 0, np.cos(mu)],
+        ]
+        Omega = np.eye(3)
+        Chi = np.eye(3)
+        Phi = np.eye(3)
+        Gamma = M@Omega@Chi@Phi
+        Theta = [[np.cos(theta), 0, np.sin(theta)],
+                [0, 1, 0],
+                [-np.sin(theta), 0, np.cos(theta)],
+        ]
+
+        im = np.zeros([Nx,Ny])  # The forward model image
+        # qi_field = np.zeros([NNx,NNy,NNz,3]) # wave vector function
+        
+        # The tensor fields Fg, Hg and the vector fields qs, qc, qi are all defined as 3D fields in the lab system
+
+        yl = yl_start + np.arange(NNy)*yl_step
+        zl = zl_start + np.arange(NNz)*zl_step
+        xl0= xl_start + np.arange(NNx)*xl_step
+        rulers = np.array([xl0, yl, zl]) # rulers in the lab system (for plotting)
+        # create the 3D grid of points in the lab system, the first dimension is zl, the second is yl, the third is xl
+        # YL[:,i,j] == yl; ZL[i,:,j] == zl; XL0[i,j,:] == xl0;
+        ZL, YL, XL0 = np.meshgrid(zl, yl, xl0)
+
+        if timeit:
+            print('Initialization time: %.2fs'%(time.time() - tic))
+        
+        XL = XL0 + ZL/np.tan(2*theta)
+        PZ = np.exp(-0.5*(ZL/zl_rms)**2)        # Gaussian beam in zl (a thin slice of sample)
+        RL = np.stack([XL, YL, ZL], axis=-1)    # (NNy,NNz,NNx,3)
+        # Determine the location of the pixel on the detector
+        DET_IND_Y = np.round((YL-yl_start)/yl_step).astype(int)//Nsub # THIS ALIGNS WITH yl
+        DET_IND_Z = np.round((XL0-xl_start)/xl_step).astype(int)//Nsub # THIS IS THE OTHER DETECTOR DIRECTION AND FOLLOWS xl BUT ROTATES 90 DEGS BECAUSE OF THE SETUP
+        RS = np.einsum('ji,...j->...i', Gamma, RL) # NB: Gamma inverse Eq. 5
+        RG = np.einsum('ji,...j->...i', U, RS)     # NB U inverse, Eq. 7
+        # RG += np.array([x_center, y_center, z_center]) # shift the center of the sample
+        Fg = Fg_fun(d, RG[..., 0], RG[..., 1], RG[..., 2]) # calculate the displacement gradient
+
+        # determine the qi for given voxel
+        Hg = np.swapaxes(np.linalg.inv(Fg), -1, -2) - np.eye(3) # Eq. 31
+        QS = np.einsum('ij,...jk,k->...i', U, Hg, q_hkl)        # Eq. 32
+        QC = QS + np.array([phi - TwoDeltaTheta/2, chi, (TwoDeltaTheta/2)/np.tan(theta_0)])                                          # Eq. 40 (also Eq. 20)
+        QI = np.einsum('ij,...j->...i', Theta, QC)              # Eq. 41
+        qi_field = np.swapaxes(np.swapaxes(QI, 2, 1), 1, 0)     # for plotting, sorted in order x_l,y_l,z_l,:
+
+        # Interpolation in rec. space resolution function.
+        IND1 = np.floor( (QI[...,0] - qi1_start)/qi1_step).astype(int)
+        IND2 = np.floor( (QI[...,1] - qi2_start)/qi2_step).astype(int)
+        IND3 = np.floor( (QI[...,2] - qi3_start)/qi3_step).astype(int)
+
+        if timeit:
+            print('Calculate the wave vectors: %.2fs'%(time.time() - tic))
+
+        # Determine intensity contribution from voxel based on rec.space res.function
+        PROB = np.zeros_like(PZ)
+        IND_IN = ((IND1 >= 0) & (IND1 < d['npoints1']) &
+                  (IND2 >= 0) & (IND2 < d['npoints2']) &
+                  (IND3 >= 0) & (IND3 < d['npoints3'])
+        )
+        # for i,j,k in zip(np.nonzero(IND_IN)[0], np.nonzero(IND_IN)[1], np.nonzero(IND_IN)[2]):
+        #     PROB[i,j,k] = Res_qi[IND1[i,j,k],IND2[i,j,k],IND3[i,j,k]]*PZ[i,j,k]
+        PROB[IND_IN] = Res_qi[IND1[IND_IN],IND2[IND_IN],IND3[IND_IN]]*PZ[IND_IN]
+
+        # Sum over all pixels in the detector, equivalent to the following loops but faster
+        # for i in range(NN):
+        #     for j in range(NN):
+        #         for k in range(NN):
+        #             # im[k//Nsub, i//Nsub] += PROB[i,j,k]
+        #             im[DET_IND_Z[i,j,k], DET_IND_Y[i,j,k]] += PROB[i,j,k]
+        ravel_ind = np.ravel_multi_index((DET_IND_Z.flatten(), DET_IND_Y.flatten()), (Nx, Ny)) # shape (NNx*NNy*NNz,), values in range(Nx*Ny)
+        im = np.bincount(ravel_ind.flatten(), weights=PROB.flatten(), minlength=Nx*Ny).reshape(Nx,Ny) # shape (Nx,Ny)
+
+        if timeit:
+            print('Image calculation: %.2fs'%(time.time() - tic))
+
+        return im, qi_field, rulers
+
     def get_rot_matrices(self, chi=None, phi=None, mu=None):
         '''Returns rotation matrices reuired to go from sample to lab frame
 
@@ -246,8 +402,8 @@ class DFXM_forward():
                         [           0, 1,           0],
                         [-np.sin(phi), 0, np.cos(phi)],
                        ])
-        Mu = np.array([[ np.cos(mu), 0, np.sin(mu)],
+        Mu = np.array([[ np.cos(mu), 0, -np.sin(mu)],
                        [         0,  1,          0],
-                       [-np.sin(mu), 0, np.cos(mu)],
-                      ])
+                       [ np.sin(mu), 0,  np.cos(mu)],
+                      ])            # Eq. 14, opposite to phi
         return Chi, Phi, Mu
