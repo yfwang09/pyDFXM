@@ -37,8 +37,10 @@ fwd_model = fwd.DFXM_forward(forward_dict)
 Res_qi, saved_q = fwd_model.res_fn(timeit=True)
 
 vis.visualize_res_fn_slice_z(fwd_model.d, Res_qi)
-np.savez_compressed(res_save_file, Res_qi=Res_qi)
-np.savez_compressed(saved_q_file, saved_q=saved_q)
+if not os.path.exists(res_save_file):
+    np.savez_compressed(res_save_file, Res_qi=Res_qi)
+if not os.path.exists(saved_q_file):
+    np.savez_compressed(saved_q_file, saved_q=saved_q)
 
 print('3. Test the resolution function of our own with saved q vectors. (fast)')
 # Test the resolution function
