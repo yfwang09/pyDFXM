@@ -9,6 +9,7 @@ General form of the DFXM forward model
 '''
 
 import time
+import os
 import numpy as np
 from scipy.stats import gaussian_kde, truncnorm
 import matplotlib.pyplot as plt
@@ -21,7 +22,11 @@ def default_forward_dict():
 
     forward_dict = {
         ################## Material and Grain setup #######################
-        # Setup of the grain rotation (Ug, Eq. 7-8)
+        # Setup of the sample coordinate system (Ug, Eq. 7-8)
+        # Note by Yifan: 2023-12-07
+        # The sample coordinate system is always dealt with in the
+        # forward_model class. In dispgrad_func class, the grain system
+        # is always aligned with identity matrix in Miller indices
         'x_c': [1,0,0],             # x dir. for the crystal system (Fig.2)
         'y_c': [0,1,0],             # y dir. for the crystal system (Fig.2)
         'hkl': [0,0,1],             # hkl diffraction plane, z dir. crystal
@@ -59,8 +64,37 @@ def default_forward_dict():
     return forward_dict
 
 class DFXM_forward():
-    def __init__(self, d=default_forward_dict):
+    def __init__(self, d=default_forward_dict, load_res_fn=None, verbose=False):
+        # get the grain rotation matrix
+        if 'Ug' not in d.keys():
+            if 'hkl' in d.keys():
+                z_c = d['hkl']/np.linalg.norm(d['hkl'])
+                if 'x_c' in d.keys():
+                    x_c = d['x_c']/np.linalg.norm(d['x_c'])
+                else:
+                    x_c = [1, 0, 0]
+                if 'y_c' in d.keys():
+                    y_c = d['y_c']/np.linalg.norm(d['y_c'])
+                else:
+                    y_c = np.cross(z_c, x_c)
+                    x_c = np.cross(y_c, z_c)
+                self.d['Ug'] = np.transpose([x_c, y_c, z_c])
+            else:
+                self.d['Ug'] = np.eye(3)
+
+        # Reset the Goniometer
+        if 'phi' not in d.keys(): d['phi'] = 0
+        if 'chi' not in d.keys(): d['chi'] = 0
+        if 'omega' not in d.keys(): d['omega'] = 0
+
         self.d = d          # Input dictionary
+
+        if load_res_fn is not None:
+            if os.path.exists(load_res_fn):
+                self.Res_qi = np.load(load_res_fn)['Res_qi']
+            else:
+                self.Res_qi, _ = self.res_fn(timeit=verbose)
+                np.savez_compressed(load_res_fn, Res_qi=self.Res_qi)
 
     def res_fn(self, saved_q=None, plot=False, timeit=False):
         ''' Compute the resolution function for DFXM
@@ -83,7 +117,7 @@ class DFXM_forward():
             3D voxelized field of resolution function
             if saved_q is None, the qvectors will be returned as well
         ratio_outside : float
-            ratio of rays outside the physical aperture
+            ratio of rays outside the physical aperture, will only be returned when saved_q is None
         '''
 
         # INPUT instrumental settings
@@ -243,25 +277,16 @@ class DFXM_forward():
         Nsub = 2                # multiply 2 to avoid sampling the 0 point, make the grids symmetric over 0
         NNx, NNy, NNz = Nsub*Nx, Nsub*Ny, Nsub*Nz
         # NN = Nsub*Npixels     # NN^3 is the total number of "rays" (voxels?) probed in the sample
-        
+
         # INPUT instrumental settings, related to direct space resolution function
         psize = d['psize']   # pixel size in units of m, in the object plane
         zl_rms = d['zl_rms'] # rms value of Gaussian beam profile, in m, centered at 0
         theta_0 = np.deg2rad(d['two_theta']/2) # in rad
         v_hkl = d['hkl']
         TwoDeltaTheta = d['TwoDeltaTheta']
-        if 'Usg' in d:          # Usually using single crystal, U = I
-            U = d['Usg']
-        else:
-            U = np.eye(3)
-        if 'phi' in d:
-            phi = d['phi']
-        else:
-            phi = 0
-        if 'chi' in d:
-            chi = d['chi']
-        else:
-            chi = 0
+        U = d['Ug']
+        phi = d['phi']
+        chi = d['chi']
 
         if timeit: 
             tic = time.time()
@@ -325,7 +350,6 @@ class DFXM_forward():
         DET_IND_Z = np.round((XL0-xl_start)/xl_step).astype(int)//Nsub # THIS IS THE OTHER DETECTOR DIRECTION AND FOLLOWS xl BUT ROTATES 90 DEGS BECAUSE OF THE SETUP
         RS = np.einsum('ji,...j->...i', Gamma, RL) # NB: Gamma inverse Eq. 5
         RG = np.einsum('ji,...j->...i', U, RS)     # NB U inverse, Eq. 7
-        # RG += np.array([x_center, y_center, z_center]) # shift the center of the sample
         Fg = Fg_fun(d, RG[..., 0], RG[..., 1], RG[..., 2]) # calculate the displacement gradient
 
         # determine the qi for given voxel

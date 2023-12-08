@@ -26,9 +26,10 @@ def default_dispgrad_dict(dispgrad_type='simple_shear'):
     # Materials properties
     'b': 1, 'nu': 0.334,
     # Grain rotation (Ug, Eq. 7-8)
-    'x_c': [1,0,0],     # x dir. for the crystal system (Fig.2)
-    'y_c': [0,1,0],     # y dir. for the crystal system (Fig.2)
-    'hkl': [0,0,1],     # hkl diffraction plane, z dir. crystal
+    # Notes by Yifan: 2023-12-07
+    # These are not used since we always align the system with Miller
+    # indices. The rotation is always dealt with in the forward_model 
+    # class.
     ## 'Ug': np.identity(3), # or directly define a rotation matrix
     # Displacement gradient (strain field) type
     'dispgrad_type': dispgrad_type,
@@ -85,7 +86,7 @@ def return_dis_grain_matrices(b=None, n=None, t=None):
      
     This function determines the rotation matrix from the dislocation coordinates to the sample coordinates (Miller indices). The sample coordinates always define the y||n and z||t, the x is defined based on y and z, since the Burger's vector could be in any direction.
     
-    The vectors don't have to be normalized, but the orthogonality will be checked, and the function also makes sure both the Burger's vector and the line direction vector are both on the slip plane.
+    The input vectors don't have to be normalized before calling this function, but the orthogonality will be checked, and the function also makes sure both the Burger's vector and the line direction vector are both on the slip plane.
 
     Important Notes:
     * n and t must be given to determine the coordinate system
@@ -135,23 +136,6 @@ class dispgrad_structure():
         else:
             self.nu = 0.334
 
-        # get the grain rotation matrix
-        if 'Ug' in d.keys():
-            self.Ug = d['Ug']
-        elif 'hkl' in d.keys():
-            z_c = d['hkl']
-            if 'x_c' in d.keys():
-                x_c = d['x_c']
-            else:
-                x_c = [1, 0, 0]
-            if 'y_c' in d.keys():
-                y_c = d['y_c']
-            else:
-                y_c = np.cross(z_c, x_c)
-                x_c = np.cross(y_c, z_c)
-            self.Ug = return_dis_grain_matrices(b=x_c, n=y_c, t=z_c).T
-        else:
-            self.Ug = np.eye(3)
 
 class simple_shear(dispgrad_structure):
     ''' Wrapper for the simple shear deformation gradient function. '''
@@ -271,9 +255,9 @@ class edge_disl(dispgrad_structure):
         return Fd
 
     def Fg(self, xg, yg, zg):
-        ''' Returns the strain tensor of a single edge dislocation in the sample coordinates.
+        ''' Returns the strain tensor of a single edge dislocation in the grain coordinates (Miller indices).
         
-        The dislocation strain tensor is calculated in the dislocation coordinates, and then rotated into the sample coordinates.
+        The dislocation strain tensor is calculated in the dislocation coordinates, and then rotated into the grain coordinates.
 
         Parameters
         ----------
@@ -286,20 +270,17 @@ class edge_disl(dispgrad_structure):
 
         Returns
         -------
-        Fd : numpy array
+        Fg : numpy array
             shape(xg)x3x3 strain tensor
         '''
 
         rg = np.stack([xg, yg, zg], axis=-1) # shape (xg.shape, 3)
-        rc = np.einsum('ij,...j->...i', self.Ug, rg) # shape (xg.shape, 3)
-        rd = np.einsum('ij,...j->...i', self.Ud.T, rc) # shape (xg.shape, 3)
+        rd = np.einsum('ij,...j->...i', self.Ud.T, rg) # shape (xg.shape, 3)
         xd, yd = rd[...,0], rd[...,1] # shape (xg.shape)
         # get strain tensor in the dislocation coordinates
         Fd = self.get_disl_strain_tensor(xd, yd)
-        # rotate into the crystal coordinates (Miller indices)
-        Fc = np.einsum('ij,...jk,kl->...il', self.Ud, Fd, self.Ud.T)
-        # rotate into the grain coordinates
-        Fg = np.einsum('ij,...jk,kl->...il', self.Ug, Fc, self.Ug.T)
+        # rotate into the grain coordinates (Miller indices)
+        Fg = np.einsum('ij,...jk,kl->...il', self.Ud, Fd, self.Ud.T)
         
         return Fg
 
@@ -309,88 +290,88 @@ class disl_network(dispgrad_structure):
         super().__init__(d)
 
 
-def Fg_disl_network(d, xg, yg, zg, filename=None):
-    ''' Returns the dislocation strain tensor in the sample coordinates.
+# def Fg_disl_network(d, xg, yg, zg, filename=None):
+#     ''' Returns the dislocation strain tensor in the sample coordinates.
 
-    Use the non-singular displacement gradient function
+#     Use the non-singular displacement gradient function
 
-    Parameters
-    ----------
-    d : dict
-        resolution function input dictionary
-    xg : float, or array
-        x coordinate in the grain system
-    yg :float, or array (shape must match with xg)
-        y coordinate in the grain system
-    zg :float, or array (shape must match with xg)
-        z coordinate in the grain system
+#     Parameters
+#     ----------
+#     d : dict
+#         resolution function input dictionary
+#     xg : float, or array
+#         x coordinate in the grain system
+#     yg :float, or array (shape must match with xg)
+#         y coordinate in the grain system
+#     zg :float, or array (shape must match with xg)
+#         z coordinate in the grain system
 
-    Returns
-    -------
-    Fg : numpy array
-        shape(xg)x3x3 strain tensor
-    '''
-    # get grain rotation matrix
-    if 'Ug' in d.keys():
-        Ug = d['Ug']
-    else:
-        Ug = np.eye(3)
-    if ('hkl' in d.keys()) and ('xcry' in d.keys()) and ('ycry' in d.keys()):
-        Ug = return_dis_grain_matrices(b=d['xcry'], n=d['ycry'], t=d['hkl']).T
-    if 'nu' in d.keys():
-        NU = d['nu']
-    else:
-        NU = 0.324
-    if 'a' in d.keys():
-        a = d['a']
-    else:
-        a = 1.0
-    if 'rn' in d.keys():
-        rn = d['rn']
-    else:
-        rn = np.array([[ 78.12212123, 884.74707189, 483.30385117],
-                       [902.71333272, 568.95913492, 938.59105117],
-                       [500.52731411, 261.22281654, 552.66098404]])
-    if 'links' in d.keys():
-        links = d['links']
-    else:
-        links = np.transpose([[0, 1, 2], [1, 2, 0]])
-    if 'bs' in d.keys():
-        b = d['bs']
-        b = b/np.linalg.norm(b)
-        # if 'b' in d.keys():
-        #     b = b*d['b']
-    else:
-        b = np.array([1, 1, 0])
-        b = b/np.linalg.norm(b)
-    if 'b' in d.keys():
-        bmag = d['b']
-    else:
-        bmag = 1
-    if 'ns' in d.keys():
-        n = d['ns']
-    else:
-        n = np.array([1, 1, 1])
-    n = n/np.linalg.norm(n)
+#     Returns
+#     -------
+#     Fg : numpy array
+#         shape(xg)x3x3 strain tensor
+#     '''
+#     # get grain rotation matrix
+#     if 'Ug' in d.keys():
+#         Ug = d['Ug']
+#     else:
+#         Ug = np.eye(3)
+#     if ('hkl' in d.keys()) and ('xcry' in d.keys()) and ('ycry' in d.keys()):
+#         Ug = return_dis_grain_matrices(b=d['xcry'], n=d['ycry'], t=d['hkl']).T
+#     if 'nu' in d.keys():
+#         NU = d['nu']
+#     else:
+#         NU = 0.324
+#     if 'a' in d.keys():
+#         a = d['a']
+#     else:
+#         a = 1.0
+#     if 'rn' in d.keys():
+#         rn = d['rn']
+#     else:
+#         rn = np.array([[ 78.12212123, 884.74707189, 483.30385117],
+#                        [902.71333272, 568.95913492, 938.59105117],
+#                        [500.52731411, 261.22281654, 552.66098404]])
+#     if 'links' in d.keys():
+#         links = d['links']
+#     else:
+#         links = np.transpose([[0, 1, 2], [1, 2, 0]])
+#     if 'bs' in d.keys():
+#         b = d['bs']
+#         b = b/np.linalg.norm(b)
+#         # if 'b' in d.keys():
+#         #     b = b*d['b']
+#     else:
+#         b = np.array([1, 1, 0])
+#         b = b/np.linalg.norm(b)
+#     if 'b' in d.keys():
+#         bmag = d['b']
+#     else:
+#         bmag = 1
+#     if 'ns' in d.keys():
+#         n = d['ns']
+#     else:
+#         n = np.array([1, 1, 1])
+#     n = n/np.linalg.norm(n)
 
-    if links.shape[1] == 2: # only connectivity is provided
-        links = np.hstack([links, np.tile(b, (3, 1)), np.tile(n, (3, 1))])
-    elif links.shape[1] != 8:
-        raise ValueError('links array must include b and n')
-    r_obs = np.stack([xg.flatten(), yg.flatten(), zg.flatten()], axis=-1)
-    rnorm = r_obs/bmag
-    rn = rn/bmag
+#     if links.shape[1] == 2: # only connectivity is provided
+#         links = np.hstack([links, np.tile(b, (3, 1)), np.tile(n, (3, 1))])
+#     elif links.shape[1] != 8:
+#         raise ValueError('links array must include b and n')
+#     r_obs = np.stack([xg.flatten(), yg.flatten(), zg.flatten()], axis=-1)
+#     rnorm = r_obs/bmag
+#     rn = rn/bmag
 
-    if filename is not None and os.path.exists(filename):
-        print('Loading displacement gradient from file %s' % filename)
-        Fg_list = np.load(filename)['Fg']
-    else:
-        test = (filename == 'test')
-        Fg_list = dgh.displacement_gradient_structure_matlab(rn, links, NU, a, rnorm, test=test)
-        np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
+#     if filename is not None and os.path.exists(filename):
+#         print('Loading displacement gradient from file %s' % filename)
+#         Fg_list = np.load(filename)['Fg']
+#     else:
+#         test = (filename == 'test')
+#         Fg_list = dgh.displacement_gradient_structure_matlab(rn, links, NU, a, rnorm, test=test)
+#         np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
 
-    # if filename is not None:
-    #     np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
-    Fg = np.reshape(Fg_list, xg.shape + (3, 3)) + np.identity(3)
+#     # if filename is not None:
+#     #     np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
+#     Fg = np.reshape(Fg_list, xg.shape + (3, 3)) + np.identity(3)
     
-    return Fg
+#     return Fg
