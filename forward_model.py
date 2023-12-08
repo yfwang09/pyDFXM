@@ -78,9 +78,9 @@ class DFXM_forward():
                 else:
                     y_c = np.cross(z_c, x_c)
                     x_c = np.cross(y_c, z_c)
-                self.d['Ug'] = np.transpose([x_c, y_c, z_c])
+                d['Ug'] = np.transpose([x_c, y_c, z_c])
             else:
-                self.d['Ug'] = np.eye(3)
+                d['Ug'] = np.eye(3)
 
         # Reset the Goniometer
         if 'phi' not in d.keys(): d['phi'] = 0
@@ -287,13 +287,14 @@ class DFXM_forward():
         U = d['Ug']
         phi = d['phi']
         chi = d['chi']
+        omega = d['omega']
 
         if timeit: 
             tic = time.time()
 
-        # Calculate reciprocal-space resolusion function
+        # Obtain the resolution function (calculated when initializing the class)
         if Res_qi is None:
-            Res_qi, _ = self.res_fn(plot=False, timeit=timeit)
+            Res_qi = self.Res_qi
 
         # Define the grid of points in the lab system (xl, yl, zl)
         theta = theta_0 + TwoDeltaTheta
@@ -334,7 +335,8 @@ class DFXM_forward():
         yl = yl_start + np.arange(NNy)*yl_step
         zl = zl_start + np.arange(NNz)*zl_step
         xl0= xl_start + np.arange(NNx)*xl_step
-        rulers = np.array([xl0, yl, zl]) # rulers in the lab system (for plotting)
+        # rulers = np.array([xl0, yl, zl]) # rulers in the lab system (for plotting)
+        rulers = (xl0, yl, zl)
         # create the 3D grid of points in the lab system, the first dimension is zl, the second is yl, the third is xl
         # YL[:,i,j] == yl; ZL[i,:,j] == zl; XL0[i,j,:] == xl0;
         ZL, YL, XL0 = np.meshgrid(zl, yl, xl0)
@@ -350,7 +352,7 @@ class DFXM_forward():
         DET_IND_Z = np.round((XL0-xl_start)/xl_step).astype(int)//Nsub # THIS IS THE OTHER DETECTOR DIRECTION AND FOLLOWS xl BUT ROTATES 90 DEGS BECAUSE OF THE SETUP
         RS = np.einsum('ji,...j->...i', Gamma, RL) # NB: Gamma inverse Eq. 5
         RG = np.einsum('ji,...j->...i', U, RS)     # NB U inverse, Eq. 7
-        Fg = Fg_fun(d, RG[..., 0], RG[..., 1], RG[..., 2]) # calculate the displacement gradient
+        Fg = Fg_fun(RG[..., 0], RG[..., 1], RG[..., 2]) # calculate the displacement gradient
 
         # determine the qi for given voxel
         Hg = np.swapaxes(np.linalg.inv(Fg), -1, -2) - np.eye(3) # Eq. 31

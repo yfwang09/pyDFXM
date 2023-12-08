@@ -241,7 +241,7 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
     axs_qi_y : matplotlib axis
         The axis for the reciprocal space wave vectors in the y direction.
     '''
-    xl, yl, zl = rulers[0,:], rulers[1,:], rulers[2,:]
+    xl, yl, zl = rulers[0], rulers[1], rulers[2]
     if im is not None:
         vmin, vmax = vlim_im
         # Visualize the simulated image

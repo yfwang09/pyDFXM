@@ -23,8 +23,8 @@ import numpy as np
 def default_dispgrad_dict(dispgrad_type='simple_shear'):
     '''Generate a default displacement gradient dictionary'''
     dispgrad_dict = {
-    # Materials properties
-    'b': 1, 'nu': 0.334,
+    # Materials properties (For Al by default)
+    'b': 2.86e-10, 'nu': 0.334,
     # Grain rotation (Ug, Eq. 7-8)
     # Notes by Yifan: 2023-12-07
     # These are not used since we always align the system with Miller
@@ -38,7 +38,7 @@ def default_dispgrad_dict(dispgrad_type='simple_shear'):
     ## 'dispgrad_type': 'disl_network', # dislocation network (todo)
     }
     if dispgrad_dict['dispgrad_type'] == 'simple_shear':
-        dispgrad_dict['R0'] = dispgrad_dict['b']*10000
+        dispgrad_dict['R0'] = dispgrad_dict['b']*5000
         dispgrad_dict['components'] = (2, 0)
         dispgrad_dict['strain_magnitude'] = 5e-4
     elif dispgrad_dict['dispgrad_type'] == 'edge_disl':

@@ -10,9 +10,9 @@ References:
 
 The simulator requires the following Python packages:
 
-- `numpy`
-- `scipy`
-- `matplotlib`
+- `numpy` (tested on 1.21)
+- `scipy` (tested on 1.4)
+- `matplotlib` (tested on 3.4.3)
 
 ## Code structure
 
@@ -27,5 +27,6 @@ We will test them separately in the following example cases and write necessary 
 
 The following example cases are provided:
 
-- `test_resolution.py`: Test the resolution function of the simulator.
-- `test_edge_disl.py`: Simulate the DFXM image of a single straight edge dislocation.
+- `test_res_fn.py`: Test and visualize the reciprocal-space resolution function of the simulator.
+- `test_forward_shear.py`: Simulate the DFXM image of a simple shear stress field. One strain component is enforced in a sphere of radius R.
+- `test_dispgrad_edge.py`: Simulate the DFXM image of a single straight edge dislocation.
