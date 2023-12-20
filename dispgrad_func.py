@@ -192,30 +192,30 @@ class edge_disl(dispgrad_structure):
 
         errorlist = []
         # Burger's vector
-        if 'bs' in d:
-            bs = d['bs']
-            self.bs = np.divide(bs, np.linalg.norm(bs))
+        if 'bg' in d:
+            bs = d['bg']
+            self.bg = np.divide(bs, np.linalg.norm(bs))
         else:
-            errorlist.append('bs')
+            errorlist.append('bg')
         # normal vector of the slip plane
-        if 'ns' in d:
-            ns = d['ns']
-            self.ns = np.divide(ns, np.linalg.norm(ns))
+        if 'ng' in d:
+            ns = d['ng']
+            self.ng = np.divide(ns, np.linalg.norm(ns))
         else:
-            errorlist.append('ns')
+            errorlist.append('ng')
         # dislocation line direction
-        if 'ts' in d:
-            ts = d['ts']
-            self.ts = np.divide(ts, np.linalg.norm(ts))
+        if 'tg' in d:
+            ts = d['tg']
+            self.tg = np.divide(ts, np.linalg.norm(ts))
         else:
-            errorlist.append('ts')
+            errorlist.append('tg')
 
         if len(errorlist) > 0:
             errorstr = ', '.join(errorlist)
             raise ValueError("edge_disl.__init__(): please define %s in d:dict"%errorstr)
 
         # get the rotation matrix for the dislocation coordinates
-        self.Ud = return_dis_grain_matrices(b=self.bs, n=self.ns, t=self.ts) # shape (3, 3)
+        self.Ud = return_dis_grain_matrices(b=self.bg, n=self.ng, t=self.tg) # shape (3, 3)
 
         # Define grain rotation Ug (done in dispgrad_structure.__init__())
 

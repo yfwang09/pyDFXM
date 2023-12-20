@@ -88,6 +88,7 @@ class DFXM_forward():
         if 'omega' not in d.keys(): d['omega'] = 0
 
         self.d = d          # Input dictionary
+        self.Ug = d['Ug']
 
         if load_res_fn is not None:
             if os.path.exists(load_res_fn):
@@ -95,6 +96,11 @@ class DFXM_forward():
             else:
                 self.Res_qi, _ = self.res_fn(timeit=verbose)
                 np.savez_compressed(load_res_fn, Res_qi=self.Res_qi)
+        else:
+            print('=========================================================================')
+            print('Resolution function is not calculated, DO NOT use the forward function')
+            print('Pass a filename load_res_fn to create/load the resolution function')
+            print('=========================================================================')
 
     def res_fn(self, saved_q=None, plot=False, timeit=False):
         ''' Compute the resolution function for DFXM
