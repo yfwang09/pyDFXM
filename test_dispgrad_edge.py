@@ -1,3 +1,6 @@
+from re import A
+
+
 perform_test = [3, ]
 
 # This code tests the the displacement gradient field of a single edge dislocation
@@ -98,7 +101,7 @@ else:
     import visualize_helper as vis
 
     print('Set up of the dislocation structure')
-    # The dispgrad_func class always assuming the structure is aligned with Miller's indices.
+    # The dispgrad_func class always assuming the coordinate system is aligned with Miller's indices (grain coordinate).
     input_dict = {
         'b': 1, 'nu': 0.334,
         # The following defines the dislocation characters
@@ -118,12 +121,12 @@ else:
     forward_dict['x_c'] = [1,0,0]  # x dir. for the crystal system (Fig.2)
     forward_dict['y_c'] = [0,1,0]  # y dir. for the crystal system (Fig.2)
     forward_dict['hkl'] = [0,0,1]  # hkl diffraction plane, z dir. crystal
-    # forward_dict['hkl'] = [1, 1, 1]
-    # forward_dict['x_c'] = [1, 1,-2]
-    # forward_dict['y_c'] = [-1,1, 0]
-    forward_dict['hkl'] = [1, 1,-1]
-    forward_dict['x_c'] = [1, 1, 2]
-    forward_dict['y_c'] = [1,-1, 0]
+    forward_dict['hkl'] = [1, 1, 1]
+    forward_dict['x_c'] = [1, 1,-2]
+    forward_dict['y_c'] = [-1,1, 0]
+    # forward_dict['hkl'] = [1, 1,-1]
+    # forward_dict['x_c'] = [1, 1, 2]
+    # forward_dict['y_c'] = [1,-1, 0]
     model = fwd.DFXM_forward(forward_dict, load_res_fn=None)
     Ug = model.Ug
 
@@ -144,7 +147,7 @@ else:
     Rg = np.einsum('ij,...j->...i', Ug, Rs)
 
     print('Rotate the grid into the dislocation coordinate')
-    Rd = np.einsum('ij,...j->...i', np.linalg.inv(Ud), Rg)    # (Ngrid, Ngrid, Ngrid, 3)
+    Rd = np.einsum('ij,...j->...i', Ud.T, Rg)    # (Ngrid, Ngrid, Ngrid, 3)
     # Rd = np.sum(np.linalg.inv(Ud)*RR[:,:,:,None,:], axis=-1)
     Rdx = Rd[..., 0]
     Rdy = Rd[..., 1]
@@ -163,34 +166,36 @@ else:
     Fs = np.einsum('ij,...jk,kl->...il', Ug.T, Fg, Ug)         # (Ngrid, Ngrid, Ngrid, 3, 3)
     print('Fs.shape =', Fs.shape)
 
-    print('Visualize the Fs tensor as 2D slices')
-
     subs = ['x', 'y', 'z']
     vmin, vmax = -1, 1
     F_plot = Fs - np.identity(3)
 
     fs = 12
-    vmin, vmax = -1, 1
-    for iz in np.linspace(0, Ngrid - 1, 9).round().astype(int):
-        fig, axs = plt.subplots(3, 3, figsize=(6, 4),
-                                sharex=True, sharey=True)
-        for i in range(3):
-            for j in range(3):
-                F_z = F_plot[::-1, :, iz, i, j]
-                ax = axs[i][j]
-                im = ax.imshow(F_z, extent=[lb, ub, lb, ub], vmin=vmin, vmax=vmax)
-                ax.set_title(r' $H^g_{%s%s}$'%(subs[i], subs[j]), loc='left', y=0.6, color='w')
-            axs[i][0].set_ylabel(r'$y^s/b$')
-            axs[-1][i].set_xlabel(r'$x^s/b$')
-        fig.colorbar(im, ax=axs)
-        fig.suptitle(r'Grain coordinate system, $z^s/b$=%.4f'%zs[iz], fontsize=fs)
-        print('  visualizing the slice zs = %.4f'%zs[iz])
-    plt.show()
+
+    if 3.1 in perform_test:
+        print('Visualize the Fs tensor as 2D slices')
+
+        for iz in np.linspace(0, Ngrid - 1, 9).round().astype(int):
+            fig, axs = plt.subplots(3, 3, figsize=(6, 4),
+                                    sharex=True, sharey=True)
+            for i in range(3):
+                for j in range(3):
+                    F_z = F_plot[:, :, iz, i, j]
+                    ax = axs[i][j]
+                    im = ax.imshow(F_z, extent=[lb, ub, lb, ub], vmin=vmin, vmax=vmax)
+                    ax.set_title(r' $H^g_{%s%s}$'%(subs[i], subs[j]), loc='left', y=0.6, color='w')
+                axs[i][0].set_ylabel(r'$y^s/b$')
+                axs[-1][i].set_xlabel(r'$x^s/b$')
+            fig.colorbar(im, ax=axs)
+            fig.suptitle(r'Grain coordinate system, $z^s/b$=%.4f'%zs[iz], fontsize=fs)
+            print('  visualizing the slice zs = %.4f'%zs[iz])
+        plt.show()
 
     print('Test the visualization helper function plot_2d_slice_z()')
-    figax = vis.plot_2d_slice_z(F_plot[:, :, :, 1, 2], vmin=vmin, vmax=vmax, show=False)
+    extent = [lb, ub, lb, ub, lb, ub]
+    figax = vis.plot_2d_slice_z(F_plot[:, :, :, 1, 2], extent=extent, vmin=vmin, vmax=vmax, show=False)
     figax[0].suptitle(r'Grain coordinate system, $H^s_{yz}$', fontsize=fs)
-    plt.show()
+    # plt.show()
 
     print('Visualize 3D slices of each component in Hg')
 
@@ -213,54 +218,77 @@ else:
     rts = np.einsum('ij,...j->...i', (Ug.T), np.transpose([xtg, ytg, ztg]))
     xt, yt, zt = rts[..., 0], rts[..., 1], rts[..., 2]
 
-    print('Visualize the 3D slices')
-    for i in range(3):
-        for j in range(3):
-            print('  visualizing %s%s component'%(subs[i], subs[j]))
-            fig = plt.figure(figsize=(6, 4))
-            ax = fig.add_subplot(111, projection='3d')
-            ax.plot([lb, lb, ub, ub], [ub, ub, ub, ub], [lb, ub, ub, lb], 'k')
-            ax.plot([lb, lb, ub, ub], [lb, ub, ub, lb], [lb, lb, lb, lb], 'k')
-            ax.plot(xt, yt, zt, 'k', linewidth=2)
+    if 3.3 in perform_test:
+        print('Visualize the 3D slices')
+        for i in range(3):
+            for j in range(3):
+                print('  visualizing %s%s component'%(subs[i], subs[j]))
+                fig = plt.figure(figsize=(6, 4))
+                ax = fig.add_subplot(111, projection='3d')
+                ax.plot([lb, lb, ub, ub], [ub, ub, ub, ub], [lb, ub, ub, lb], 'k')
+                ax.plot([lb, lb, ub, ub], [lb, ub, ub, lb], [lb, lb, lb, lb], 'k')
+                ax.plot(xt, yt, zt, 'k', linewidth=2)
 
-            for iz in range(5, 50, 10):
-                zloc = zs[iz]                  # z location of the plane
-                Fg_z = F_plot[:, :, iz, i, j]      # value of the plane
-                zval = np.clip(Fg_z, vmin, vmax)
-                # print(zval.min(), zval.max())
-                norm = Normalize(vmin=vmin, vmax=vmax)
-                surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.5)
-                
-            cax = fig.colorbar(surf, shrink=0.5)
-            cticks = cax.get_ticks()  # Always in the range of [0, 1]
-            cax.set_ticks(cticks)
-            cticklabels = (cticks-cticks.min())/(cticks.max()-cticks.min())*(vmax-vmin) + vmin
-            cax.set_ticklabels(['%.1f'%k for k in cticklabels])
-            ax.set_title(r'Sample coordinate system $H^s_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
+                for iz in range(5, 50, 10):
+                    zloc = zs[iz]                  # z location of the plane
+                    Fg_z = F_plot[:, :, iz, i, j]      # value of the plane
+                    zval = np.clip(Fg_z, vmin, vmax)
+                    # print(zval.min(), zval.max())
+                    norm = Normalize(vmin=vmin, vmax=vmax)
+                    surf = ax.plot_surface(xx, yy, np.ones_like(xx)*zloc, linewidth=0, edgecolor="None", facecolors=plt.cm.viridis(norm(zval)), alpha=0.5)
+                    
+                cax = fig.colorbar(surf, shrink=0.5)
+                cticks = cax.get_ticks()  # Always in the range of [0, 1]
+                cax.set_ticks(cticks)
+                cticklabels = (cticks-cticks.min())/(cticks.max()-cticks.min())*(vmax-vmin) + vmin
+                cax.set_ticklabels(['%.1f'%k for k in cticklabels])
+                ax.set_title(r'Sample coordinate system $H^s_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
 
-            ax.plot([lb, lb, ub, ub], [lb, lb, lb, lb], [ub, lb, lb, ub], 'k')
-            ax.plot([lb, lb, ub, ub], [ub, lb, lb, ub], [ub, ub, ub, ub], 'k')
-            ax.set_xlabel(r'$x^s/b$', fontsize=fs)
-            ax.set_ylabel(r'$y^s/b$', fontsize=fs)
-            ax.set_zlabel(r'$z^s/b$', fontsize=fs)
-    plt.show()
+                ax.plot([lb, lb, ub, ub], [lb, lb, lb, lb], [ub, lb, lb, ub], 'k')
+                ax.plot([lb, lb, ub, ub], [ub, lb, lb, ub], [ub, ub, ub, ub], 'k')
+                ax.set_xlabel(r'$x^s/b$', fontsize=fs)
+                ax.set_ylabel(r'$y^s/b$', fontsize=fs)
+                ax.set_zlabel(r'$z^s/b$', fontsize=fs)
+        plt.show()
 
     print('Test the visualization helper function plot_3d_slice_z')
     figax = vis.plot_3d_slice_z(F_plot[:, :, :, 1, 2], extent=[lb, ub, lb, ub, lb, ub], vmin=vmin, vmax=vmax, nslice=5, fs=fs, show=False)
     fig, ax = figax
+    # change the view angle
+    # ax.view_init(elev=90, azim=-90)
     ax.plot(xt, yt, zt, 'k', lw=2)
     ax.set_title(r'Grain coordinate system, $H^s_{yz}$', fontsize=fs)
     plt.show()
 
 print('------------------------------------------------------------------')
+print('-------- Test 4: DFXM image of an edge dislocation ----------')
 
-# forward_dict = {
-#     # The following defines the grain rotation (Ug, Eq.7-8)
-#     # 'hkl': [0,0,1], # hkl diffraction plane, z dir. crystal
-#     # 'x_c': [1,0,0], # x dir. for the crystal system (Fig.2)
-#     # 'y_c': [0,1,0], # y dir. for the crystal system (Fig.2)
-#     'hkl' : [1,1,1],
-#     'x_c' : [1,1,-2],
-#     'y_c' : [-1,1,0],
+if 4 not in perform_test:
+    print('Test 4 skipped')
+else:
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import dispgrad_func as dgf
+    import forward_model as fwd
+    import visualize_helper as vis
 
-# }
+    print('Set up of the dislocation structure')
+    # The dispgrad_func class always assuming the structure is aligned with Miller's indices.
+    input_dict = {
+        'b': 1, 'nu': 0.334,
+        # The following defines the dislocation characters
+        'bg': [1,-1, 0], # Burger's vector dir. in Miller (grain)
+        'ng': [1, 1,-1], # Normal vector dir. in Miller (grain)
+        'tg': [1, 1, 2], # Dislocation line dir. in Miller (grain)
+    }
+    print(input_dict)
+    edge = dgf.edge_disl(input_dict)
+
+    forward_dict = fwd.default_forward_dict()
+    forward_dict['b'] = 1
+    # The following defines the sample coordinate (Ug, Ug = U.T, Eq.7-8)
+    forward_dict['x_c'] = [1,0,0]  # x dir. for the crystal system (Fig.2)
+    forward_dict['y_c'] = [0,1,0]  # y dir. for the crystal system (Fig.2)
+    forward_dict['hkl'] = [0,0,1]  # hkl diffraction plane, z dir. crystal
+    model = fwd.DFXM_forward(forward_dict, load_res_fn='data/Res_qi_Al_001.npz')
+

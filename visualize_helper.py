@@ -40,14 +40,19 @@ def plot_2d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], vmin=0, vmax=1, nslice=9, s
         raise NotImplementedError('Only 9 slices are supported currently.')
     npoints3 = F.shape[2]
     iz_slices = np.linspace(0, npoints3-1, nslice+2).astype(int)
+    zvals = np.linspace(extent[-2], extent[-1], nslice+2)
     fig, axs = plt.subplots(3, 3, figsize=(6, 4), sharex=True, sharey=True)
     for k in range(1, iz_slices.size-1):
         ind, iz = k-1, iz_slices[k]
         i, j = ind//3, ind%3
         ax = axs[i][j]
-        imax = ax.imshow(F[:,:,iz], extent=extent[:4], vmin=vmin, vmax=vmax)
-        axs[i][0].set_ylabel(r'$y^g/b$')
-        axs[-1][i].set_xlabel(r'$x^g/b$')
+        imax = ax.imshow(F[::-1,:,iz], extent=extent[:4], vmin=vmin, vmax=vmax) # row starts from the bottom
+        title_str = r'%.2f'%zvals[k]
+        if k in [1, 2, 3]:
+            title_str = r'$z^s = $' + title_str
+        ax.set_title(title_str, y=0.8, va='center', color='w')
+        axs[i][0].set_ylabel(r'$y^s/b$')
+        axs[-1][i].set_xlabel(r'$x^s/b$')
     fig.colorbar(imax, ax=axs)
     if show:
         plt.show()
