@@ -1,7 +1,7 @@
 from re import A
 
 
-perform_test = [3, ]
+perform_test = [4, ]
 
 # This code tests the the displacement gradient field of a single edge dislocation
 
@@ -121,9 +121,9 @@ else:
     forward_dict['x_c'] = [1,0,0]  # x dir. for the crystal system (Fig.2)
     forward_dict['y_c'] = [0,1,0]  # y dir. for the crystal system (Fig.2)
     forward_dict['hkl'] = [0,0,1]  # hkl diffraction plane, z dir. crystal
-    forward_dict['hkl'] = [1, 1, 1]
-    forward_dict['x_c'] = [1, 1,-2]
-    forward_dict['y_c'] = [-1,1, 0]
+    # forward_dict['hkl'] = [1, 1, 1]
+    # forward_dict['x_c'] = [1, 1,-2]
+    # forward_dict['y_c'] = [-1,1, 0]
     # forward_dict['hkl'] = [1, 1,-1]
     # forward_dict['x_c'] = [1, 1, 2]
     # forward_dict['y_c'] = [1,-1, 0]
@@ -182,7 +182,7 @@ else:
                 for j in range(3):
                     F_z = F_plot[:, :, iz, i, j]
                     ax = axs[i][j]
-                    im = ax.imshow(F_z, extent=[lb, ub, lb, ub], vmin=vmin, vmax=vmax)
+                    im = ax.imshow(F_z, extent=[lb, ub, lb, ub], vmin=vmin, vmax=vmax, origin='lower')
                     ax.set_title(r' $H^g_{%s%s}$'%(subs[i], subs[j]), loc='left', y=0.6, color='w')
                 axs[i][0].set_ylabel(r'$y^s/b$')
                 axs[-1][i].set_xlabel(r'$x^s/b$')
@@ -273,9 +273,10 @@ else:
     import visualize_helper as vis
 
     print('Set up of the dislocation structure')
+    b0 = 2.86e-10 # Burgers vector of Aluminum in m 
     # The dispgrad_func class always assuming the structure is aligned with Miller's indices.
     input_dict = {
-        'b': 1, 'nu': 0.334,
+        'b': b0, 'nu': 0.334,
         # The following defines the dislocation characters
         'bg': [1,-1, 0], # Burger's vector dir. in Miller (grain)
         'ng': [1, 1,-1], # Normal vector dir. in Miller (grain)
@@ -285,10 +286,21 @@ else:
     edge = dgf.edge_disl(input_dict)
 
     forward_dict = fwd.default_forward_dict()
-    forward_dict['b'] = 1
+    forward_dict['b'] = b0
     # The following defines the sample coordinate (Ug, Ug = U.T, Eq.7-8)
-    forward_dict['x_c'] = [1,0,0]  # x dir. for the crystal system (Fig.2)
-    forward_dict['y_c'] = [0,1,0]  # y dir. for the crystal system (Fig.2)
-    forward_dict['hkl'] = [0,0,1]  # hkl diffraction plane, z dir. crystal
+    forward_dict['x_c'] = [1, 0, 0]  # x dir. for the crystal system (Fig.2)
+    forward_dict['y_c'] = [0, 1, 0]  # y dir. for the crystal system (Fig.2)
+    forward_dict['hkl'] = [0, 0, 1]  # hkl diffraction plane, z dir. crystal
+    # forward_dict['Npixels'] = [50, 50, 50]
     model = fwd.DFXM_forward(forward_dict, load_res_fn='data/Res_qi_Al_001.npz')
 
+    # Calculate and visualize the image
+    print('#'*20 + ' Calculate and visualize the image ' + '#'*20)
+    im, ql, rulers = model.forward(edge.Fg)
+
+    # Visualize the simulated image
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, unit='um', deg=True, show=False)
+
+    # Visualize the reciprocal space wave vector ql
+    # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-10, 1e-10], unit='um', deg=True)
+    figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])

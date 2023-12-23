@@ -46,7 +46,7 @@ def plot_2d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], vmin=0, vmax=1, nslice=9, s
         ind, iz = k-1, iz_slices[k]
         i, j = ind//3, ind%3
         ax = axs[i][j]
-        imax = ax.imshow(F[::-1,:,iz], extent=extent[:4], vmin=vmin, vmax=vmax) # row starts from the bottom
+        imax = ax.imshow(F[:,:,iz], extent=extent[:4], vmin=vmin, vmax=vmax, origin='lower') # row starts from the bottom
         title_str = r'%.2f'%zvals[k]
         if k in [1, 2, 3]:
             title_str = r'$z^s = $' + title_str
@@ -209,7 +209,7 @@ def visualize_res_fn_slice_z(d, Res_qi, plot_2d=True, plot_3d=True, show=True):
             plt.show()
     return figax2d, figax3d
 
-def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=[None, None], deg=False, show=True):
+def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=[None, None], deg=False, unit='m', show=True):
     ''' Visualize the simulated image and the reciprocal space wave vectors
 
     Parameters
@@ -228,6 +228,9 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
         The intensity limits for the reciprocal space wave vectors. The default is [None, None].
     deg : bool, optional
         Whether the angles are in degrees. The default is False.
+    unit : str, optional
+        The unit of the rulers. The default is 'm'.
+        Implemented units: 'm', 'um', 'A'
     show : bool, optional
         Whether to show the figure. The default is True.
 
@@ -247,17 +250,28 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
         The axis for the reciprocal space wave vectors in the y direction.
     '''
     xl, yl, zl = rulers[0], rulers[1], rulers[2]
+    if unit == 'um':
+        xl, yl, zl = xl*1e6, yl*1e6, zl*1e6
+    elif unit == 'A':
+        xl, yl, zl = xl*1e10, yl*1e10, zl*1e10
+    elif unit != 'm':
+        raise ValueError('Unsupported unit: %s'%unit)
     if im is not None:
         vmin, vmax = vlim_im
         # Visualize the simulated image
         fig, ax = plt.subplots()
-        imax = ax.imshow(im.T, extent=[xl.min(), xl.max(), yl.min(), yl.max()], vmin=vmin, vmax=vmax)
+        # imax = ax.imshow(im)
+        # print(im.shape, xl.shape, yl.shape)
+        # imax = ax.imshow(im.T, extent=[xl.min(), xl.max(), yl.min(), yl.max()], vmin=vmin, vmax=vmax)
+        imax = ax.imshow(im.T, extent=[xl.min(), xl.max(), yl.min(), yl.max()],vmin=vmin, vmax=vmax, origin='lower')
         if deg:
-            ax.set_title(r'Simulated DFXM Image: $\phi = %.4f^\circ$, $\chi = %.4f^\circ$, $\Delta 2\theta = %.4f^\circ$'%tuple(np.rad2deg([forward_dict['phi'], forward_dict['chi'], forward_dict['TwoDeltaTheta']])), loc='right')
+            # ax.set_title(r'$\phi = %.4f\degree$, $\chi = %.4f\degree$, $\Delta 2\theta = %.4f\degree$'%tuple(np.rad2deg([forward_dict['phi'], forward_dict['chi'], forward_dict['TwoDeltaTheta']])), loc='center')
+            ax.set_title(r'$\phi = %.4f\degree$, $\chi = %.4f\degree$'%tuple(np.rad2deg([forward_dict['phi'], forward_dict['chi']])), loc='center')
         else:
-            ax.set_title(r'Simulated DFXM Image: $\phi = %.4f$, $\chi = %.4f$, $\Delta 2\theta = %.4f$'%(forward_dict['phi'], forward_dict['chi'], forward_dict['TwoDeltaTheta']), loc='right')
-        ax.set_xlabel('x (m)')
-        ax.set_ylabel('y (m)')
+            # ax.set_title(r'$\phi = %.4f$, $\chi = %.4f$, $\Delta 2\theta = %.4f$'%(forward_dict['phi'], forward_dict['chi'], forward_dict['TwoDeltaTheta']), loc='center')
+            ax.set_title(r'$\phi = %.4f$, $\chi = %.4f$'%(forward_dict['phi'], forward_dict['chi']), loc='center')
+        ax.set_xlabel("x' (%s)"%unit)
+        ax.set_ylabel("y' (%s)"%unit)
         cax = fig.colorbar(imax, ax=ax, orientation='horizontal')
         cax.set_label('Intensity (a.u.)')
         fig_im, ax_im = fig, ax
@@ -265,37 +279,44 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
         fig_im, ax_im = None, None
 
     if qi is not None:
+        if unit == 'um':
+            qi = qi/1e6
+        elif unit == 'A':
+            qi = qi/1e10
+        elif unit != 'm':
+            raise ValueError('Unsupported unit: %s'%unit)
         vmin, vmax = vlim_qi
         # Visualize the reciprocal space wave vector ql in the (x,y,z=0) plane
         ind_z = zl.size//2
         subs = ['x', 'y', 'z']
-        fig, axs = plt.subplots(3, 1, figsize=(12,9), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, 1, figsize=(7, 6), sharex=True, sharey=True)
         for i in range(3):
             ax = axs[i]
             imax = ax.imshow(qi[:,:,ind_z,i].T, extent=[xl.min(), xl.max(), yl.min(), yl.max()], vmin=vmin, vmax=vmax)
             ax.set_title(r'$q^{\ell}_{%s}$, (x, y)-plane at z = 0'%(subs[i]), loc='right')
-            ax.set_ylabel('$y_{\ell}$ (m)')
-        ax.set_xlabel('$x_{\ell}$ (m)')
+            ax.set_ylabel('$y_{\ell}$ (%s)'%unit)
+        ax.set_xlabel('$x_{\ell}$ (%s)'%unit)
         # create a shared colorbar on the right side
         fig.subplots_adjust(right=0.99)
         y0, y1 = axs[2].get_position().y0, axs[0].get_position().y1
+        fig.tight_layout()
         cbar_ax = fig.add_axes([0.8, y0, 0.05, y1-y0])
         fig.colorbar(imax, cax=cbar_ax)
         # change the colorbar ticks to be in units of 1e-4
         cbar_ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-        cbar_ax.set_ylabel(r'$q^{\ell}$ (m$^{-1}$)')
+        cbar_ax.set_ylabel(r'$q^{\ell}$ (%s$^{-1}$)'%unit)
         fig_qi_z, axs_qi_z = fig, axs
 
         # Visualize the reciprocal space wave vector ql in the (x,y=0,z) plane
         ind_y = yl.size//2
         subs = ['x', 'y', 'z']
-        fig, axs = plt.subplots(3, 1, figsize=(12,6), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, 1, figsize=(9, 4), sharex=True, sharey=True)
         for i in range(3):
             ax = axs[i]
             imax = ax.imshow(qi[:,ind_y,:,i].T, extent=[xl.min(), xl.max(), zl.min(), zl.max()], vmin=vmin, vmax=vmax)
             ax.set_title(r'$q^{\ell}_{%s}$, (x, z)-plane at y = 0'%(subs[i]), loc='right')
-            ax.set_ylabel('$z_{\ell}$ (m)')
-        ax.set_xlabel('$x_{\ell}$ (m)')
+            ax.set_ylabel('$z_{\ell}$ (%s)'%unit)
+        ax.set_xlabel('$x_{\ell}$ (%s)'%unit)
         # create a shared colorbar on the right side
         fig.subplots_adjust(right=0.75)
         y0, y1 = axs[2].get_position().y0, axs[0].get_position().y1
@@ -303,7 +324,8 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
         fig.colorbar(imax, cax=cbar_ax)
         # change the colorbar ticks to be in units of 1e-4
         cbar_ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-        cbar_ax.set_ylabel(r'$q^{\ell}$ (m$^{-1}$)')
+        cbar_ax.set_ylabel(r'$q^{\ell}$ (%s$^{-1}$)'%unit)
+        # fig.tight_layout()
         fig_qi_y, axs_qi_y = fig, axs
     else:
         fig_qi_z, axs_qi_z = None, None
