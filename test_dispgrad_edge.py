@@ -1,7 +1,7 @@
 from re import A
 
 
-perform_test = [4, ]
+perform_test = [1, 2, 3, 4, 5]
 
 # This code tests the the displacement gradient field of a single edge dislocation
 
@@ -291,12 +291,15 @@ else:
     forward_dict['x_c'] = [1, 0, 0]  # x dir. for the crystal system (Fig.2)
     forward_dict['y_c'] = [0, 1, 0]  # y dir. for the crystal system (Fig.2)
     forward_dict['hkl'] = [0, 0, 1]  # hkl diffraction plane, z dir. crystal
-    # forward_dict['Npixels'] = [50, 50, 50]
+    forward_dict['Npixels'] = [50, 50, 50]
     model = fwd.DFXM_forward(forward_dict, load_res_fn='data/Res_qi_Al_001.npz')
 
     # Calculate and visualize the image
-    print('#'*20 + ' Calculate and visualize the image ' + '#'*20)
+    print('#'*20 + ' Calculate the strong-beam DFXM image ' + '#'*20)
     im, ql, rulers = model.forward(edge.Fg)
+    print('im.shape =', im.shape)
+    print('ql.shape =', ql.shape)
+    print('chi =', np.rad2deg(forward_dict['chi']), 'phi =', np.rad2deg(forward_dict['phi']))  # tilt angle in deg
 
     # Visualize the simulated image
     figax = vis.visualize_im_qi(forward_dict, im, None, rulers, unit='um', deg=True, show=False)
@@ -304,3 +307,77 @@ else:
     # Visualize the reciprocal space wave vector ql
     # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-10, 1e-10], unit='um', deg=True)
     figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+
+    # Calculate and visualize the image
+    print('#'*20 + ' Calculate the weak-beam DFXM image ' + '#'*20)
+    forward_dict['phi'] = np.deg2rad(0.05)  # tilt angle in rad
+    forward_dict['chi'] = np.deg2rad(0.000)  # tilt angle in rad
+    im, ql, rulers = model.forward(edge.Fg)
+    print('im.shape =', im.shape)
+    print('ql.shape =', ql.shape)
+    print('chi =', np.rad2deg(forward_dict['chi']), 'phi =', np.rad2deg(forward_dict['phi']))  # tilt angle in deg
+
+    # Visualize the simulated image
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, unit='um', deg=True, show=False)
+
+    # Visualize the reciprocal space wave vector ql
+    # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-10, 1e-10], unit='um', deg=True)
+    figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+
+print('------------------------------------------------------------------')
+print('-------- Test 5: Rocking curve of the DFXM for an edge -----------')
+
+if 5 not in perform_test:
+    print('Test 5 skipped')
+else:
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import dispgrad_func as dgf
+    import forward_model as fwd
+    import visualize_helper as vis
+
+    print('Set up of the dislocation structure')
+    b0 = 2.86e-10 # Burgers vector of Aluminum in m
+    # The dispgrad_func class always assuming the structure is aligned with Miller's indices.
+    input_dict = {
+        'b': b0, 'nu': 0.334,
+        # The following defines the dislocation characters
+        'bg': [1,-1, 0], # Burger's vector dir. in Miller (grain)
+        'ng': [1, 1,-1], # Normal vector dir. in Miller (grain)
+        'tg': [1, 1, 2], # Dislocation line dir. in Miller (grain)
+    }
+    print(input_dict)
+    edge = dgf.edge_disl(input_dict)
+
+    forward_dict = fwd.default_forward_dict()
+    forward_dict['b'] = b0
+    # The following defines the sample coordinate (Ug, Ug = U.T, Eq.7-8)
+    forward_dict['x_c'] = [1, 0, 0]  # x dir. for the crystal system (Fig.2)
+    forward_dict['y_c'] = [0, 1, 0]  # y dir. for the crystal system (Fig.2)
+    forward_dict['hkl'] = [0, 0, 1]  # hkl diffraction plane, z dir. crystal
+    forward_dict['Npixels'] = [50, 50, 50]
+    model = fwd.DFXM_forward(forward_dict, load_res_fn='data/Res_qi_Al_001.npz')
+
+    # Calculate the rocking curve
+    print('#'*20 + ' Calculate the rocking curve ' + '#'*20)
+    phi_values = np.round(np.arange(-0.0020, 0.0022, 0.0002), 4)
+    rocking_maxvals = []
+    for i, phi in enumerate(phi_values):
+        forward_dict['phi'] = phi
+        im, ql, rulers = model.forward(edge.Fg)
+        print('chi =', np.rad2deg(forward_dict['chi']), 'phi =', np.rad2deg(forward_dict['phi']))  # tilt angle in deg
+
+        if i%5 == 0:
+            # Visualize the simulated image
+            figax = vis.visualize_im_qi(forward_dict, im, None, rulers, unit='um', deg=True, show=False)
+
+        rocking_maxvals.append(im.max())
+
+    # Visualize the rocking curve
+    fig, ax = plt.subplots()
+    ax.plot(np.rad2deg(phi_values), rocking_maxvals, 'k')
+    ax.set_xlabel(r'$\phi (\degree)$')
+    ax.set_ylabel('Maximum intensity')
+    plt.show()
+
+print('------------------------------------------------------------------')
