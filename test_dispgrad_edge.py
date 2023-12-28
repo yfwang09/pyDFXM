@@ -1,5 +1,9 @@
-from re import A
-
+#-----------------------------------------------------------------------
+# DFXM forward calculation for a straight edge dislocation
+#
+# Developer: Yifan Wang, yfwang09@stanford.edu
+# Date: 2023/12/27
+#---------------------------------------------------------------
 
 perform_test = [1, 2, 3, 4, 5]
 

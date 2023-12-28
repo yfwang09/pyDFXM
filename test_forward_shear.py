@@ -1,10 +1,9 @@
-'''
-Test the forward model with simple shear case
-
-Created on 2023-09-28 12:47
-
-Author: yfwang09
-'''
+#-----------------------------------------------------------------------
+# DFXM forward calculation for the simple shear case
+#
+# Developer: Yifan Wang, yfwang09@stanford.edu
+# Date: 2023/12/27
+#---------------------------------------------------------------
 
 import os
 import numpy as np
