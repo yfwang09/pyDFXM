@@ -25,9 +25,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import dispgrad_func as dgf
-import forward_model as fwd
 from displacement_grad_helper import displacement_structure, displacement_gradient_structure_matlab
 
 #---------------------------------------------------------
@@ -41,7 +39,7 @@ MU = 27e9                           # Shear modulus (Pa)
 input_dict['nu'] = NU = 0.324       # Poisson's ratio
 LAMBDA = 2*MU*NU/(1-2*NU)           # Lame's first parameter
 input_dict['b'] = bmag = 1.0        # Burger's vector magnitude
-input_dict['a'] = a = 1.0           # Non-singular radius
+input_dict['a'] = a = 1.0           # Non-singular radius (in the unit of Burger's vector)
 
 # Initialize the triangular loop 
 L = 1000        # in the unit of b

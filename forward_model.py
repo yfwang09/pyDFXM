@@ -32,7 +32,7 @@ def default_forward_dict():
         'hkl': [0,0,1],             # hkl diffraction plane, z dir. crystal
         ## 'Ug': np.identity(3),    # or directly define a rotation matrix
         'two_theta' : 20.73,        # 2theta for Al-(002) (deg)
-        'b': 2.86e-10,              # Burger's vector magnitude (scaling)
+        'b': 2.86e-10,              # Burger's vector magnitude (scaling, not used in forward model)
         ###################################################################
         # Parameters for the forward model
         'psize' : 75e-9,            # pixel size (m)

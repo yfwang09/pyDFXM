@@ -366,6 +366,7 @@ class disl_network(dispgrad_structure):
 
         self.d['rn'] = self.rn = rn
         self.d['links'] = self.links = links
+        self.d['cell'] = self.cell = cell
 
     def displacement_gradient_seg(self, b, r1, r2, r, verbose=False):
         ''' Calculate the displacement gradient tensor of a dislocation segment
@@ -504,11 +505,11 @@ class disl_network(dispgrad_structure):
         Parameters
         ----------
         xg : float, or array
-            x coordinate in the grain system
+            x coordinate in the grain system (m)
         yg :float, or array (shape must match with xg)
-            y coordinate in the grain system
+            y coordinate in the grain system (m)
         zg :float, or array (shape must match with xg)
-            z coordinate in the grain system
+            z coordinate in the grain system (m)
         filename : str, optional
             filename to load the displacement gradient field from file. The default is None.
         zeros : bool, optional
@@ -539,7 +540,8 @@ class disl_network(dispgrad_structure):
             if verbose:
                 print('Calculating displacement gradient')
             Fg_list = self.displacement_gradient_structure(rnorm, zeros=zeros, verbose=verbose)
-            np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
+            if filename is not None:
+                np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
 
         Fg = np.reshape(Fg_list, xg.shape + (3, 3)) + np.identity(3)
         return Fg

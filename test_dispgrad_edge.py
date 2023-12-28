@@ -120,7 +120,6 @@ else:
     print(Ud)
 
     forward_dict = fwd.default_forward_dict()
-    forward_dict['b'] = 1
     # The following defines the sample coordinate (Ug, Ug = U.T, Eq.7-8)
     forward_dict['x_c'] = [1,0,0]  # x dir. for the crystal system (Fig.2)
     forward_dict['y_c'] = [0,1,0]  # y dir. for the crystal system (Fig.2)
@@ -290,7 +289,6 @@ else:
     edge = dgf.edge_disl(input_dict)
 
     forward_dict = fwd.default_forward_dict()
-    forward_dict['b'] = b0
     # The following defines the sample coordinate (Ug, Ug = U.T, Eq.7-8)
     forward_dict['x_c'] = [1, 0, 0]  # x dir. for the crystal system (Fig.2)
     forward_dict['y_c'] = [0, 1, 0]  # y dir. for the crystal system (Fig.2)
@@ -354,7 +352,6 @@ else:
     edge = dgf.edge_disl(input_dict)
 
     forward_dict = fwd.default_forward_dict()
-    forward_dict['b'] = b0
     # The following defines the sample coordinate (Ug, Ug = U.T, Eq.7-8)
     forward_dict['x_c'] = [1, 0, 0]  # x dir. for the crystal system (Fig.2)
     forward_dict['y_c'] = [0, 1, 0]  # y dir. for the crystal system (Fig.2)

@@ -106,7 +106,10 @@ def plot_3d_slice_z(F, extent=[-1, 1, -1, 1, -1, 1], vmin=0, vmax=1, nslice=9, f
     cticks = cax.get_ticks()  # Always in the range of [0, 1]
     cax.set_ticks(cticks)
     cticklabels = (cticks-cticks.min())/(cticks.max()-cticks.min())*(vmax-vmin) + vmin
-    cax.set_ticklabels(['%.1f'%k for k in cticklabels])
+    # cax.tick_params()
+    # cax.ticklabel_format(style='sci', scilimits=(0, 1e-2))
+    cax.set_ticklabels(['%.1e'%k for k in cticklabels])
+    # cax.set_ticklabels(cticklabels)
     # ax.set_title(r'Grain coordinate system $H^g_{%s%s}$'%(subs[i], subs[j]), fontsize=fs)
 
     ax.plot([lbx, lbx, ubx, ubx], [lby, lby, lby, lby], [ubz, lbz, lbz, ubz], 'k')
