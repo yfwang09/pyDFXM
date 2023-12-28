@@ -47,7 +47,9 @@ def default_dispgrad_dict(dispgrad_type='simple_shear'):
         dispgrad_dict['ts'] = [1, 1, 2] # Dislocation line dir. in Miller (sample)
     elif dispgrad_dict['dispgrad_type'] == 'disl_network':
         # print('dispgrad_type == disl_network is not implemented')
-        pass
+        dispgrad_dict['b'] = 1                      # Use Burger's vector as the unit length
+        dispgrad_dict['nu'] = 0.334                 # Poisson's ratio (Al)
+        dispgrad_dict['a'] = 1.0*dispgrad_dict['b'] # Non-singular radius
     else:
         raise NotImplementedError('dispgrad_type == %s is not implemented'%dispgrad_dict['dispgrad_type'])
 
@@ -288,90 +290,256 @@ class disl_network(dispgrad_structure):
     ''' Wrapper for the dislocation network deformation gradient function. '''
     def __init__(self, d=default_dispgrad_dict('disl_network')):
         super().__init__(d)
+        self.a = d['a']         # non-singular radius
+        self.rn = d['rn']       # position of the nodes
+        self.links = d['links'] # connectivity of the segments
 
+    def load_network(self, filename, scale_cell=1.0, select_seg=None, verbose=False):
+        ''' Load dislocation network from a ParaDiS restart file.
 
-# def Fg_disl_network(d, xg, yg, zg, filename=None):
-#     ''' Returns the dislocation strain tensor in the sample coordinates.
+            rn: position of the nodes               (nNodes, 3)
+            links: connectivity of the segments     (nLinks, 2)
+            b: Burgers vector of the segments       (nLinks, 3)
+            n: slip plane normal of the segments    (nLinks, 3)
 
-#     Use the non-singular displacement gradient function
+        Parameters
+        ----------
+        filename : str
+            filename of the ParaDis restart file
+        scale_cell : float, optional
+            scale the cell size. The default is 1.0.
+        select_seg : list, optional
+            select a subset of the segments. The default is None.
+        verbose : bool, optional
+            Print out the intermediate results for debugging.
+        '''
+        with open(filename, 'r') as f:
+            while True:
+                line = f.readline()
+                if line.startswith('POINTS'):
+                    nNodes = int(line.split()[1])
+                    rn = np.zeros((nNodes, 3))
+                    for i in range(nNodes):
+                        rn[i, :] = np.array(f.readline().split(), dtype=float)
+                    rn *= scale_cell
+                    nNodes = nNodes - 8
+                    origin = np.min(rn[:8, :], axis=0)
+                    rn -= origin
+                    endpoints = rn[:8, :]
+                    rn = rn[8:, :]
+                elif line.startswith('CELLS'):
+                    nLinks = int(line.split()[1])
+                    links = np.zeros((nLinks, 2))
+                    for i in range(nLinks):
+                        line = f.readline()
+                        if i == 0:
+                            edges = np.array(line.split()[1:], dtype=int)
+                        else:
+                            links[i, :] = np.array(line.split()[1:3], dtype=int)
+                    nLinks = nLinks - 1
+                    links = links[1:, :] - 8
+                elif line.startswith('VECTORS'):
+                    line = f.readline()
+                    b = np.zeros((nLinks, 3))
+                    n = np.zeros((nLinks, 3))
+                    for i in range(nLinks):
+                        b[i, :] = np.array(f.readline().split(), dtype=float)
+                        t = rn[links[i, 1].astype(int), :] - rn[links[i, 0].astype(int), :]
+                        n[i, :] = np.cross(b[i, :], t)
+                        n[i, :] = n[i, :]/np.linalg.norm(n[i, :])
+                        if verbose:
+                            print(b[i, :], t/np.linalg.norm(t), n[i, :])
+                    b = b/np.linalg.norm(b, axis=1, keepdims=True)
+                    break
 
-#     Parameters
-#     ----------
-#     d : dict
-#         resolution function input dictionary
-#     xg : float, or array
-#         x coordinate in the grain system
-#     yg :float, or array (shape must match with xg)
-#         y coordinate in the grain system
-#     zg :float, or array (shape must match with xg)
-#         z coordinate in the grain system
+        L = np.max(endpoints, axis=0) - np.min(endpoints, axis=0)
+        cell = np.diag(L)
+        if verbose:
+            print('cell')
+            print(cell)
+            print('links, b, n')
+            print(links.shape, b.shape, n.shape)
+        links = np.hstack([links, b, n])
+        if select_seg is not None:
+            links = links[select_seg, ...]
+        rn = rn - L/2
 
-#     Returns
-#     -------
-#     Fg : numpy array
-#         shape(xg)x3x3 strain tensor
-#     '''
-#     # get grain rotation matrix
-#     if 'Ug' in d.keys():
-#         Ug = d['Ug']
-#     else:
-#         Ug = np.eye(3)
-#     if ('hkl' in d.keys()) and ('xcry' in d.keys()) and ('ycry' in d.keys()):
-#         Ug = return_dis_grain_matrices(b=d['xcry'], n=d['ycry'], t=d['hkl']).T
-#     if 'nu' in d.keys():
-#         NU = d['nu']
-#     else:
-#         NU = 0.324
-#     if 'a' in d.keys():
-#         a = d['a']
-#     else:
-#         a = 1.0
-#     if 'rn' in d.keys():
-#         rn = d['rn']
-#     else:
-#         rn = np.array([[ 78.12212123, 884.74707189, 483.30385117],
-#                        [902.71333272, 568.95913492, 938.59105117],
-#                        [500.52731411, 261.22281654, 552.66098404]])
-#     if 'links' in d.keys():
-#         links = d['links']
-#     else:
-#         links = np.transpose([[0, 1, 2], [1, 2, 0]])
-#     if 'bs' in d.keys():
-#         b = d['bs']
-#         b = b/np.linalg.norm(b)
-#         # if 'b' in d.keys():
-#         #     b = b*d['b']
-#     else:
-#         b = np.array([1, 1, 0])
-#         b = b/np.linalg.norm(b)
-#     if 'b' in d.keys():
-#         bmag = d['b']
-#     else:
-#         bmag = 1
-#     if 'ns' in d.keys():
-#         n = d['ns']
-#     else:
-#         n = np.array([1, 1, 1])
-#     n = n/np.linalg.norm(n)
+        self.d['rn'] = self.rn = rn
+        self.d['links'] = self.links = links
 
-#     if links.shape[1] == 2: # only connectivity is provided
-#         links = np.hstack([links, np.tile(b, (3, 1)), np.tile(n, (3, 1))])
-#     elif links.shape[1] != 8:
-#         raise ValueError('links array must include b and n')
-#     r_obs = np.stack([xg.flatten(), yg.flatten(), zg.flatten()], axis=-1)
-#     rnorm = r_obs/bmag
-#     rn = rn/bmag
+    def displacement_gradient_seg(self, b, r1, r2, r, verbose=False):
+        ''' Calculate the displacement gradient tensor of a dislocation segment
+        optimized by vectorization, now support multiple observation points
 
-#     if filename is not None and os.path.exists(filename):
-#         print('Loading displacement gradient from file %s' % filename)
-#         Fg_list = np.load(filename)['Fg']
-#     else:
-#         test = (filename == 'test')
-#         Fg_list = dgh.displacement_gradient_structure_matlab(rn, links, NU, a, rnorm, test=test)
-#         np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
+        The length unit is normalized to the Burger's vector magnitude
 
-#     # if filename is not None:
-#     #     np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
-#     Fg = np.reshape(Fg_list, xg.shape + (3, 3)) + np.identity(3)
-    
-#     return Fg
+        Parameters
+        ----------
+        b : numpy array (3, )
+            Burgers vector of the dislocation segment
+        r1 : numpy array (3, )
+            First endpoint of the dislocation segment
+        r2 : numpy array (3, )
+            Second endpoint of the dislocation segment
+        r : numpy array (3, ) or (nobs, 3)
+            Observation points
+        verbose : bool, optional
+            Print out the intermediate results for debugging.
+            The default is False.
+
+        Returns
+        -------
+        dudx : numpy array
+            Displacement gradient tensor
+        ''' 
+        if len(r.shape) == 1:
+            r = r.reshape(1, 3)
+        r1 = r1.reshape(1, 3)
+        r2 = r2.reshape(1, 3)
+        nobs = r.shape[0]
+        dudx = np.zeros((nobs, 3, 3))
+
+        t = r2 - r1                 # (1, 3)
+        t = t/np.linalg.norm(t)     # (1, 3)
+        R = r1 - r                  # (n, 3)
+        dr = np.dot(R, t.T)         # (n, 1)
+        x0 = r1 - dr*t              # (n, 3)
+        d = R - dr*t                # (n, 3)
+        s1 = np.dot(r1 - x0, t.T)   # (n, 1)
+        s2 = np.dot(r2 - x0, t.T)   # (n, 1)
+
+        a2 = self.a**2              # (1, )
+        d2 = np.sum(d*d, axis=1, keepdims=True)  # (n, 1)
+        da2 = d2 + a2               # (n, 1)
+        da2inv = 1/da2              # (n, 1)
+        Ra1 = np.sqrt(s1*s1 + da2)  # (n, 1)
+        Ra2 = np.sqrt(s2*s2 + da2)  # (n, 1)
+        Ra1inv = 1/Ra1              # (n, 1)
+        Ra1inv3 = Ra1inv**3         # (n, 1)
+        Ra2inv = 1/Ra2              # (n, 1)
+        Ra2inv3 = Ra2inv**3         # (n, 1)
+        if verbose:
+            print('r', r, 'Ra1', Ra1, 'Ra2', Ra2)
+
+        J03 = da2inv*(s2*Ra2inv - s1*Ra1inv)                # (n, 1)
+        J13 = -Ra2inv + Ra1inv                              # (n, 1)
+        J15 = -1/3*(Ra2inv3 - Ra1inv3)                      # (n, 1)
+        J25 = 1/3*da2inv*(s2**3*Ra2inv3 - s1**3*Ra1inv3)    # (n, 1)
+        J05 = da2inv*(2*J25 + s2*Ra2inv3 - s1*Ra1inv3)      # (n, 1)
+        J35 = 2*da2*J15 - s2**2*Ra2inv3 + s1**2*Ra1inv3     # (n, 1)
+        if verbose:
+            print('r', r, 'J03', J03, 'J13', J13, 'J15', J15, 'J25', J25, 'J05', J05, 'J35', J35)
+
+        delta = np.eye(3)                                   # (3, 3)
+        A = 3*a2*d*J05 + 2*d*J03 + 3*a2*t*J15 + 2*t*J13     # (n, 3)
+        if verbose:
+            print('r', r, 'A', A)
+
+        B1 = (np.einsum('mj,kl->kjlm', delta, d) + np.einsum('jl,km->kjlm', delta, d) + np.einsum('lm,kj->kjlm', delta, d)) * J03.reshape(nobs, 1, 1, 1) # (n, 3, 3, 3) 
+        B2 = (np.einsum('mj,kl->kjlm', delta, t) + np.einsum('jl,km->kjlm', delta, t) + np.einsum('lm,kj->kjlm', delta, t)) * J13.reshape(nobs, 1, 1, 1) # (n, 3, 3, 3)
+        B3 = -3*np.einsum('km,kj,kl->kjlm', d, d, d) * J05.reshape(nobs, 1, 1, 1) # (n, 3, 3, 3)
+        B4 = -3*(np.einsum('km,kj,kl->kjlm', d, d, t) + np.einsum('km,kj,kl->kjlm', d, t, d) + np.einsum('km,kj,kl->kjlm', t, d, d)) * J15.reshape(nobs, 1, 1, 1) # (n, 3, 3, 3)
+        B5 = -3*(np.einsum('km,kj,kl->jlm', d, t, t) + np.einsum('km,kj,kl->kjlm', t, d, t) + np.einsum('km,kj,kl->kjlm', t, t, d)) * J25.reshape(nobs, 1, 1, 1) # (n, 3, 3, 3)
+        B6 = -3*np.einsum('km,kj,kl->kjlm', t, t, t) * J35.reshape(nobs, 1, 1, 1) # (n, 3, 3, 3)
+        B  = B1 + B2 + B3 + B4 + B5 + B6                    # (n, 3, 3, 3)
+
+        Ab = np.einsum('mi,mj,k->mijk', A, t, b)            # (n, 3, 3, 3)
+        
+        U1 = np.zeros((nobs, 3, 3))
+        U2 = np.zeros((nobs, 3, 3))
+        U3 = np.zeros((nobs, 3, 3))
+        for l in range(3):
+            U1[:, l, 0] = Ab[:, 2, 1, l] - Ab[:, 1, 2, l]
+            U1[:, l, 1] = Ab[:, 0, 2, l] - Ab[:, 2, 0, l]
+            U1[:, l, 2] = Ab[:, 1, 0, l] - Ab[:, 0, 1, l]
+            U2[:, 0, l] = Ab[:, l, 2, 1] - Ab[:, l, 1, 2]
+            U2[:, 1, l] = Ab[:, l, 0, 2] - Ab[:, l, 2, 0]
+            U2[:, 2, l] = Ab[:, l, 1, 0] - Ab[:, l, 0, 1]
+            for m in range(3):
+                U3[:, m, l] \
+                    = (B[:, 1, l, m]*t[:, 2] - B[:, 2, l, m]*t[:, 1])*b[0] \
+                    + (B[:, 2, l, m]*t[:, 0] - B[:, 0, l, m]*t[:, 2])*b[1] \
+                    + (B[:, 0, l, m]*t[:, 1] - B[:, 1, l, m]*t[:, 0])*b[2]
+
+        dudx = -1/8/np.pi*(U1 + U2 + 1/(1 - self.d['nu']) * U3)
+        return dudx
+
+    def displacement_gradient_structure(self, r, verbose=False, zeros=False):
+        '''Computes the non-singular displacement gradient produced by the dislocation structure.
+
+        The length unit is normalized to the Burger's vector magnitude
+
+        Parameters
+        ----------
+        r : numpy array (nobs, 3)
+            Observation point
+        verbose : bool, optional
+            Print out the intermediate results for debugging.
+        zeros : bool, optional
+            If True, the function will return a zero-filled array for testing purpose.
+
+        Returns
+        -------
+        dudx : numpy array (nobs, 3, 3)
+            Displacement gradient tensor
+        '''
+        nobs = r.shape[0]
+        dudx = np.zeros((nobs, 3, 3))
+        if not zeros:
+            for i in range(self.links.shape[0]):
+                n1 = self.links[i, 0].astype(int)
+                n2 = self.links[i, 1].astype(int)
+                r1 = self.rn[n1, :]
+                r2 = self.rn[n2, :]
+                b = self.links[i, 2:5]
+                dudx += self.displacement_gradient_seg(b, r1, r2, r, verbose=verbose)
+        
+        return dudx
+
+    def Fg(self, xg, yg, zg, filename=None, zeros=False, verbose=False):
+        ''' Returns the dislocation strain tensor in the grain (Miller) coordinates.
+
+        Use the non-singular displacement gradient function
+
+        Parameters
+        ----------
+        xg : float, or array
+            x coordinate in the grain system
+        yg :float, or array (shape must match with xg)
+            y coordinate in the grain system
+        zg :float, or array (shape must match with xg)
+            z coordinate in the grain system
+        filename : str, optional
+            filename to load the displacement gradient field from file. The default is None.
+        zeros : bool, optional
+            If True, the function will return a zero-filled array for testing purpose.
+        verbose : bool, optional
+            Print out the intermediate results for debugging.
+
+        Returns
+        -------
+        Fg : numpy array
+            shape(xg)x3x3 strain tensor
+        '''
+        
+        # Set up parameters
+        bmag = self.d['b']
+
+        # Normalize the coordinate into the unit of the Burgers vector
+        r_obs = np.stack([xg.flatten(), yg.flatten(), zg.flatten()], axis=-1)
+        rnorm = r_obs/bmag
+        # self.d['rn'] = self.rn = self.rn/bmag
+
+        # Load the displacement gradient field from file
+        if filename is not None and os.path.exists(filename):
+            if verbose:
+                print('Loading displacement gradient from file %s' % filename)
+            Fg_list = np.load(filename)['Fg']
+        else:
+            if verbose:
+                print('Calculating displacement gradient')
+            Fg_list = self.displacement_gradient_structure(rnorm, zeros=zeros, verbose=verbose)
+            np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
+
+        Fg = np.reshape(Fg_list, xg.shape + (3, 3)) + np.identity(3)
+        return Fg
