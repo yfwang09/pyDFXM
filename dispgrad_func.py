@@ -291,8 +291,10 @@ class disl_network(dispgrad_structure):
     def __init__(self, d=default_dispgrad_dict('disl_network')):
         super().__init__(d)
         self.a = d['a']         # non-singular radius
-        self.rn = d['rn']       # position of the nodes
-        self.links = d['links'] # connectivity of the segments
+        if 'rn' in d:
+            self.rn = d['rn']       # position of the nodes
+        if 'links' in d:
+            self.links = d['links'] # connectivity of the segments
 
     def load_network(self, filename, scale_cell=1.0, select_seg=None, verbose=False):
         ''' Load dislocation network from a ParaDiS restart file.
