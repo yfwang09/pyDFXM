@@ -30,11 +30,11 @@ input_dict['nu'] = NU = 0.324       # Poisson's ratio
 input_dict['b'] = bmag = 2.86e-10   # Burger's magnitude (m)
 
 # Initialize the triangular loop 
-L = 1000        # in the unit of b
+L = 20000        # in the unit of b
 # rn = L*(np.random.rand(3, 3) - 0.5)
 rn = np.array([[ 78.12212123, 884.74707189, 483.30385117],
                [902.71333272, 568.95913492, 938.59105117],
-               [500.52731411, 261.22281654, 552.66098404]]) - L/2
+               [500.52731411, 261.22281654, 552.66098404]])*20 - L/2
 print(rn)
 # Normalized Burger's vector
 b = np.array([1, 1, 0])
@@ -67,7 +67,7 @@ disl = dgf.disl_network(input_dict)
 # plt.show()
 
 #%%-------------------------------------------------------
-# CALCULATE THE DFXM IMAGE
+# CALCULATE THE DISPLACEMENT GRADIENT
 #---------------------------------------------------------
 
 forward_dict = fwd.default_forward_dict()
@@ -78,8 +78,6 @@ datapath = 'data'
 os.makedirs(datapath, exist_ok=True)
 saved_res_fn = os.path.join(datapath, 'Res_qi_Al_001.npz')
 print('saved resolution function at %s'%saved_res_fn)
-saved_Fg_file = os.path.join(datapath, 'Fg_triloop_Al_001.npz')
-print('saved displacement gradient at %s'%saved_Fg_file)
 
 model = fwd.DFXM_forward(forward_dict, load_res_fn=saved_res_fn)
 Ug = model.Ug
@@ -98,7 +96,7 @@ print('Grid size in the sample coordinates:', Rs.shape)
 
 print('Convert Rs into the grain coordinates (Miller indices)')
 Rg = np.einsum('ij,...j->...i', Ug, Rs)
-Fg = disl.Fg(Rg[..., 0], Rg[..., 1], Rg[..., 2])#, filename=saved_Fg_file)
+Fg = disl.Fg(Rg[..., 0], Rg[..., 1], Rg[..., 2])
 
 print('Visualize the displacement gradient')
 i, j = 1, 2
@@ -117,4 +115,40 @@ ax.set_title(r'Grain coordinate system, $F^g_{yz}$', fontsize=fs)
 ax.set_xlabel(r'${\rm x(\mu m)}$')
 ax.set_ylabel(r'${\rm y(\mu m)}$')
 ax.set_zlabel(r'${\rm z(\mu m)}$')
+plt.show()
+
+#%%-------------------------------------------------------
+# CALCULATE THE DISPLACEMENT GRADIENT
+#---------------------------------------------------------
+
+print('#'*20 + ' Calculate and visualize the image')
+saved_Fg_file = os.path.join(datapath, 'Fg_triloop_Al_001.npz')
+print('saved displacement gradient at %s'%saved_Fg_file)
+Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
+im, ql, rulers = model.forward(Fg_func)
+
+# Visualize the simulated image
+figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
+
+# Visualize the reciprocal space wave vector ql
+# figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+
+# Visualize the observation points
+uc = 1e6 # um/m
+r_obs = np.load(saved_Fg_file)['r_obs'] * uc
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+lb, ub = -L/2*bmag * uc, L/2*bmag * uc
+ax.plot([lb, lb, ub, ub], [ub, ub, ub, ub], [lb, ub, ub, lb], 'k')
+ax.plot([lb, lb, ub, ub], [lb, ub, ub, lb], [lb, lb, lb, lb], 'k')
+for i in range(links.shape[0]):
+    n12 = links[i, 0:2].astype(int)
+    r12 = rn[n12, :]*bmag * uc
+    ax.plot(r12[..., 0], r12[..., 1], r12[..., 2],  'C3o-')
+
+nskip = 10
+ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+ax.plot([lb, lb, ub, ub], [lb, lb, lb, lb], [ub, lb, lb, ub], 'k')
+ax.plot([lb, lb, ub, ub], [ub, lb, lb, ub], [ub, ub, ub, ub], 'k')
+ax.axis('equal')
 plt.show()
