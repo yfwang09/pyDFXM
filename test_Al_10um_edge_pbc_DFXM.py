@@ -32,27 +32,6 @@ input_dict['b'] = bmag = 2.86e-10   # Burger's magnitude (m)
 disl = dgf.disl_network(input_dict)
 disl.load_network(config_file)
 
-#---------------------------------------------------------
-# Plot the dislocation structure
-
-# L = np.mean(np.diag(disl.cell))
-# # print(disl.cell)
-# # print(disl.rn)
-
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# lb, ub = -L/2 *bmag*1e6, L/2 *bmag*1e6
-# # print(lb, ub)
-# ax.plot([lb, lb, ub, ub], [ub, ub, ub, ub], [lb, ub, ub, lb], 'k')
-# ax.plot([lb, lb, ub, ub], [lb, ub, ub, lb], [lb, lb, lb, lb], 'k')
-# for i in range(disl.links.shape[0]):
-#     n12 = disl.links[i, 0:2].astype(int)
-#     r12 = disl.rn[n12, :] *bmag*1e6
-#     ax.plot(r12[..., 0], r12[..., 1], r12[..., 2],  'C3o-')
-# ax.plot([lb, lb, ub, ub], [lb, lb, lb, lb], [ub, lb, lb, ub], 'k')
-# ax.plot([lb, lb, ub, ub], [ub, lb, lb, ub], [ub, ub, ub, ub], 'k')
-# plt.show()
-
 #%%-------------------------------------------------------
 # CALCULATE THE DISPLACEMENT GRADIENT
 #---------------------------------------------------------
