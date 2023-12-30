@@ -338,3 +338,41 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
         plt.show()
 
     return (fig_im, ax_im, fig_qi_z, axs_qi_z, fig_qi_y, axs_qi_y)
+
+def visualize_disl_network(d, rn, links, extent=None, unit='b', figax=None, show=True):
+    ''' Visualize the dislocation network. '''
+    if 'b' in d:
+        bmag = d['b']
+    else:
+        bmag = 1
+    if unit == 'um':
+        rn = rn*bmag*1e6
+        unit_str = r'$\mu$m'
+    elif unit == 'A':
+        rn = rn*bmag*1e10
+        unit_str = r'$\AA$'
+    elif unit != 'b':
+        raise ValueError('Unsupported unit: %s'%unit)
+    if figax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+    else:
+        fig, ax = figax
+    if extent is not None:
+        lbx, ubx, lby, uby, lbz, ubz = tuple(extent)
+        ax.plot([lbx, lbx, ubx, ubx], [uby, uby, uby, uby], [lbz, ubz, ubz, lbz], 'k')
+        ax.plot([lbx, lbx, ubx, ubx], [lby, uby, uby, lby], [lbz, lbz, lbz, lbz], 'k')
+    for i in range(links.shape[0]):
+        n12 = links[i, 0:2].astype(int)
+        r12 = rn[n12, :]
+        ax.plot(r12[..., 0], r12[..., 1], r12[..., 2],  'ko-')
+    if extent is not None:
+        ax.plot([lbx, lbx, ubx, ubx], [lby, lby, lby, lby], [ubz, lbz, lbz, ubz], 'k')
+        ax.plot([lbx, lbx, ubx, ubx], [uby, lby, lby, uby], [ubz, ubz, ubz, ubz], 'k')
+    ax.set_xlabel(r'x(%s)'%unit_str)
+    ax.set_ylabel(r'y(%s)'%unit_str)
+    ax.set_zlabel(r'z(%s)'%unit_str)
+    ax.axis('equal')
+    if show:
+        plt.show()
+    return (fig, ax)
