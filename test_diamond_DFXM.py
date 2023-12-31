@@ -1,8 +1,8 @@
 #%%-----------------------------------------------------------------
-# DFXM forward calculation for Aluminum discrete dislocation configuration
+# DFXM forward calculation for diamond DDD configurations
 #
 # Developer: Yifan Wang, yfwang09@stanford.edu
-# Date: 2023/12/29
+# Date: 2023/12/31
 #---------------------------------------------------------------
 
 import os, time
@@ -17,16 +17,18 @@ import visualize_helper as vis
 #---------------------------------------------------------
 
 # Configuration files
-casename = 'Al_10um_edge_pbc'
+casename = 'diamond_10um_60deg_pbc'
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
 
-# Elasticity parameters (Aluminum)
+# Elasticity parameters (Diamond)
 input_dict = dgf.default_dispgrad_dict('disl_network')
+print(input_dict)
 
-input_dict['nu'] = NU = 0.324       # Poisson's ratio
-input_dict['b'] = bmag = 2.86e-10   # Burger's magnitude (m)
+input_dict['nu'] = NU = 0.200       # Poisson's ratio
+input_dict['b'] = bmag = 2.522e-10  # Burger's magnitude (m)
+two_theta = 48.16                   # 2theta for diamond-(004) (deg)
 
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
@@ -37,13 +39,13 @@ disl.load_network(config_file)
 #---------------------------------------------------------
 
 forward_dict = fwd.default_forward_dict()
-forward_dict['two_theta'] = 20.73         # 2theta for Al-(002) (deg)
+forward_dict['two_theta'] = two_theta
 print(forward_dict)
 
 # Set up the pre-calculated resolution function
 datapath = 'data'
 os.makedirs(datapath, exist_ok=True)
-saved_res_fn = os.path.join(datapath, 'Res_qi_Al_001.npz')
+saved_res_fn = os.path.join(datapath, 'Res_qi_diamond_001.npz')
 print('saved resolution function at %s'%saved_res_fn)
 
 # Set up the pre-calculated displacement gradient
