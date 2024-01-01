@@ -5,6 +5,7 @@
 # Date: 2023/12/29
 #---------------------------------------------------------------
 
+from calendar import c
 import os, time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,6 +22,7 @@ casename = 'Al_10um_edge_pbc'
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
+config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename)
 
 # Elasticity parameters (Aluminum)
 input_dict = dgf.default_dispgrad_dict('disl_network')
@@ -31,6 +33,9 @@ input_dict['b'] = bmag = 2.86e-10   # Burger's magnitude (m)
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
 disl.load_network(config_file)
+
+# Write the dislocation network into a CA file
+disl.write_network_ca(config_ca_file, bmag=bmag)
 
 #%%-------------------------------------------------------
 # CALCULATE THE DISPLACEMENT GRADIENT
@@ -98,8 +103,8 @@ figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
 # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
 
 # Visualize the observation points
-lb, ub = -L/2, L/2                                  # in unit of b
-extent = np.multiply(bmag*1e6, [lb, ub, lb, ub, lb, ub]) # in the unit of um
+lb, ub = -L/2*bmag, L/2*bmag                        # in unit of b
+extent = np.multiply(1e6, [lb, ub, lb, ub, lb, ub]) # in the unit of um
 fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
 nskip = 10
 r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um

@@ -18,10 +18,25 @@ Fg_disl_network: dislocation network (todo)
 
 import os
 import numpy as np
+import disl_io_helper as dio
+# from disl_io_helper import read_vtk, write_ca
+# from io_helper import default_ca_header, simulation_cell_header, cluster_header
 # import displacement_grad_helper as dgh
 
 def default_dispgrad_dict(dispgrad_type='simple_shear'):
-    '''Generate a default displacement gradient dictionary'''
+    '''Generate a default displacement gradient dictionary
+    
+    Args:
+        dispgrad_type (str): The type of displacement gradient (strain field).
+            Defaults to 'simple_shear'.
+    
+    Returns:
+        dict: The default displacement gradient dictionary.
+    
+    Raises:
+        NotImplementedError: If the specified dispgrad_type is not implemented.
+    
+    '''
     dispgrad_dict = {
     # Materials properties (For Al by default)
     'b': 2.86e-10, 'nu': 0.334,
@@ -56,6 +71,13 @@ def default_dispgrad_dict(dispgrad_type='simple_shear'):
     return dispgrad_dict
 
 def return_dis_grain_matrices_all():
+    """
+    Returns a 3D array containing displacement gradient matrices for all grain orientations.
+
+    Returns:
+    dis_grain_all (ndarray): A 3D array of shape (3, 3, 12) containing displacement gradient matrices.
+                            Each matrix represents the displacement gradient for a specific grain orientation.
+    """
     dis_grain_all = np.zeros([3, 3, 12])
     dis_grain_all[:,:,0] = [[1/np.sqrt(2), 1/np.sqrt(2), 0], [-1/np.sqrt(3), 1/np.sqrt(3), 1/np.sqrt(3)],\
                             [1/np.sqrt(6), -1/np.sqrt(6), 2/np.sqrt(6) ]]
@@ -122,7 +144,14 @@ def return_dis_grain_matrices(b=None, n=None, t=None):
     return Ud
 
 class dispgrad_structure():
-    ''' Displacement gradient function class. '''
+    ''' Displacement gradient function class.
+
+    Attributes:
+        d (dict): Input dictionary.
+        b (float): Burger's vector magnitude.
+        nu (float): Poisson's ratio.
+    '''
+
     def __init__(self, d=default_dispgrad_dict()):
         self.d = d              # input dictionary
 
@@ -315,60 +344,29 @@ class disl_network(dispgrad_structure):
         verbose : bool, optional
             Print out the intermediate results for debugging.
         '''
-        with open(filename, 'r') as f:
-            while True:
-                line = f.readline()
-                if line.startswith('POINTS'):
-                    nNodes = int(line.split()[1])
-                    rn = np.zeros((nNodes, 3))
-                    for i in range(nNodes):
-                        rn[i, :] = np.array(f.readline().split(), dtype=float)
-                    rn *= scale_cell
-                    nNodes = nNodes - 8
-                    origin = np.min(rn[:8, :], axis=0)
-                    rn -= origin
-                    endpoints = rn[:8, :]
-                    rn = rn[8:, :]
-                elif line.startswith('CELLS'):
-                    nLinks = int(line.split()[1])
-                    links = np.zeros((nLinks, 2))
-                    for i in range(nLinks):
-                        line = f.readline()
-                        if i == 0:
-                            edges = np.array(line.split()[1:], dtype=int)
-                        else:
-                            links[i, :] = np.array(line.split()[1:3], dtype=int)
-                    nLinks = nLinks - 1
-                    links = links[1:, :] - 8
-                elif line.startswith('VECTORS'):
-                    line = f.readline()
-                    b = np.zeros((nLinks, 3))
-                    n = np.zeros((nLinks, 3))
-                    for i in range(nLinks):
-                        b[i, :] = np.array(f.readline().split(), dtype=float)
-                        t = rn[links[i, 1].astype(int), :] - rn[links[i, 0].astype(int), :]
-                        n[i, :] = np.cross(b[i, :], t)
-                        n[i, :] = n[i, :]/np.linalg.norm(n[i, :])
-                        if verbose:
-                            print(b[i, :], t/np.linalg.norm(t), n[i, :])
-                    b = b/np.linalg.norm(b, axis=1, keepdims=True)
-                    break
-
-        L = np.max(endpoints, axis=0) - np.min(endpoints, axis=0)
-        cell = np.diag(L)
-        if verbose:
-            print('cell')
-            print(cell)
-            print('links, b, n')
-            print(links.shape, b.shape, n.shape)
-        links = np.hstack([links, b, n])
-        if select_seg is not None:
-            links = links[select_seg, ...]
-        rn = rn - L/2
+        rn, links, cell = dio.read_vtk(filename, scale_cell=scale_cell, verbose=verbose, select_seg=select_seg)
 
         self.d['rn'] = self.rn = rn
         self.d['links'] = self.links = links
         self.d['cell'] = self.cell = cell
+
+    def write_network_ca(self, filename, origin=None, bmag=None):
+        """ Write Crystal Analysis file
+
+        Parameters
+        ----------
+        filename : str
+            filename of the Crystal Analysis file
+        origin : tuple, optional
+            origin of the simulation cell. The default is (0, 0, 0) at the center.
+        bmag : float, optional
+            magnitude of the Burger's vector. The default is None.
+        """
+        if bmag is None:
+            bmag = self.d['b']
+        if origin is None:
+            origin = tuple(-np.diag(self.cell)/2)
+        dio.write_ca(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
 
     def displacement_gradient_seg(self, b, r1, r2, r, verbose=False):
         ''' Calculate the displacement gradient tensor of a dislocation segment
