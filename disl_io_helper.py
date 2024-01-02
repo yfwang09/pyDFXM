@@ -1,6 +1,8 @@
 from os import link
+from re import T
 import sys
 import numpy as np
+import scipy as sp
 
 def read_vtk(fileName, scale_cell=1, verbose=False, select_seg=None):
     """ Read VTK file for dislocation data
@@ -246,6 +248,94 @@ CLUSTER_ORIENTATION
 CLUSTER_COLOR 1.0 1.0 1.0
 CLUSTER_SIZE 33452184
 END_CLUSTER'''
+
+def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
+    ''' Group connected segments into physical dislocation links '''
+    cluster_orientation = bmag * np.identity(3) * 1e10
+    rn = rn.copy() * bmag * 1e10
+    cell = cell.copy() * bmag * 1e10
+    rn_scaled = np.linalg.inv(cell).dot(rn.T).T
+    rn_scaled[np.isclose(rn_scaled, 0.5)] = -0.5
+    # rn_scaled[np.isclose(rn_scaled, -0.5)] = -0.4
+    rn = cell.dot(rn_scaled.T).T
+    origin = tuple(np.multiply(origin, bmag*1e10))
+    # find all the repeated nodes
+    rn, rn_idx = np.unique(rn, axis=0, return_inverse=True)
+    links = links.copy()
+    links[:, 0:2] = rn_idx[links[:, 0:2].astype(int)]
+    # construct a sparse connectivity matrix (sparse matrix)
+    conn = sp.sparse.lil_array((rn.shape[0], rn.shape[0]), dtype=int)
+    for i in range(links.shape[0]):
+        conn[links[i, 0].astype(int), links[i, 1].astype(int)] = i + 1
+        conn[links[i, 1].astype(int), links[i, 0].astype(int)] = i + 1
+        # print(links[i])
+    conn = conn.tocsr()
+    # print(conn)
+    disl_used = np.zeros(links.shape[0], dtype=bool)
+    disl_list = []
+    for i in range(links.shape[0]):
+        if disl_used[i]:
+            continue
+        disl_used[i] = True
+        disl_node = [links[i, 0].astype(int), links[i, 1].astype(int)]
+        # print(disl_node[0], conn.getrow(disl_node[0]))
+        # print(disl_node[-1], conn.getrow(disl_node[-1]))
+        # extend the dislocation left
+        while True:
+            conn_row = conn.getrow(disl_node[0])
+            if conn_row.getnnz() != 2:
+                break
+            link_exist = conn[disl_node[0], disl_node[1]] - 1
+            link_left = conn_row.sum() - (link_exist + 1) - 1
+            if disl_used[link_left]:
+                break
+            # print(link_exist, links[link_exist, :2])
+            # print(link_left, links[link_left, :2])
+            burgers_exist = links[link_exist, 2:5]
+            burgers_left = links[link_left, 2:5]
+            if np.linalg.norm(burgers_exist - burgers_left) > 1e-6:
+                break
+            conn_row_nonzero = conn_row.nonzero()[1]
+            link_left_to = conn_row_nonzero.sum() - disl_node[1]
+            disl_used[link_left] = True
+            disl_node.insert(0, link_left_to)
+        # extend the dislocation right
+        while True:
+            conn_row = conn.getrow(disl_node[-1])
+            if conn_row.getnnz() != 2:
+                break
+            link_exist = conn[disl_node[-1], disl_node[-2]] - 1
+            link_right = conn_row.sum() - (link_exist + 1) - 1
+            if disl_used[link_right]:
+                break
+            burgers_exist = links[link_exist, 2:5]
+            burgers_right = links[link_right, 2:5]
+            if np.linalg.norm(burgers_exist - burgers_right) > 1e-6:
+                break
+            conn_row_nonzero = conn_row.nonzero()[1]
+            link_right_to = conn_row_nonzero.sum() - disl_node[-2]
+            disl_used[link_right] = True
+            disl_node.append(link_right_to)
+        disl_list.append(disl_node)
+
+    with open(filename, 'w') as f:
+        print(default_ca_header, file=f)
+        # cell_str = np.savetxt(sys.stdout.buffer, cell, '%f')
+        print(simulation_cell_header%(origin+tuple(cell.flatten())), file=f)
+        # cluster_str = np.savetxt(sys.stdout.buffer, cluster_orientation, '%f')
+        print(cluster_header%tuple(cluster_orientation.flatten()), file=f)
+        ndisl = len(disl_list)
+        print('DISLOCATIONS %d'%ndisl, file=f)
+        for i, disl_i in enumerate(disl_list):
+            print('%d'%i, file=f) # Dislocation ID
+            bvec = links[conn[disl_i[0], disl_i[1]] - 1, 2:5]
+            bvec = bvec/np.abs(bvec)[np.abs(bvec) > 0].min()
+            burgers = bvec/np.sum(bvec**2)
+            print('%.10f %.10f %.10f'%tuple(burgers), file=f)               # Burger's vector
+            print('%d'%1, file=f) # Cluster ID
+            print('%d'%len(disl_i), file=f) # number of nodes
+            for j in disl_i:
+                print('%.10f %.10f %.10f'%tuple(rn[j, :]), file=f)
 
 def write_ca(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
     """ Write Crystal Analysis file

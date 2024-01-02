@@ -23,6 +23,7 @@ casename = 'Al_10um_edge_pbc'
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
 config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename)
+config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename)
 
 # Elasticity parameters (Aluminum)
 input_dict = dgf.default_dispgrad_dict('disl_network')
@@ -36,6 +37,7 @@ disl.load_network(config_file)
 
 # Write the dislocation network into a CA file
 disl.write_network_ca(config_ca_file, bmag=bmag)
+disl.write_network_ca(config_reduced_ca_file, bmag=bmag, reduced=True)
 
 #%%-------------------------------------------------------
 # CALCULATE THE DISPLACEMENT GRADIENT

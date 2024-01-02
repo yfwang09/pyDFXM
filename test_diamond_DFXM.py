@@ -18,9 +18,12 @@ import visualize_helper as vis
 
 # Configuration files
 casename = 'diamond_10um_60deg_pbc'
+casename = 'diamond_MD0_200x100x100'
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
+config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename)
+config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename)
 
 # Elasticity parameters (Diamond)
 input_dict = dgf.default_dispgrad_dict('disl_network')
@@ -33,6 +36,10 @@ two_theta = 48.16                   # 2theta for diamond-(004) (deg)
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
 disl.load_network(config_file)
+
+# Write the dislocation network into a CA file
+disl.write_network_ca(config_ca_file, bmag=bmag)
+disl.write_network_ca(config_reduced_ca_file, bmag=bmag, reduced=True)
 
 #%%-------------------------------------------------------
 # CALCULATE THE DISPLACEMENT GRADIENT

@@ -350,7 +350,7 @@ class disl_network(dispgrad_structure):
         self.d['links'] = self.links = links
         self.d['cell'] = self.cell = cell
 
-    def write_network_ca(self, filename, origin=None, bmag=None):
+    def write_network_ca(self, filename, origin=None, bmag=None, reduced=False):
         """ Write Crystal Analysis file
 
         Parameters
@@ -361,12 +361,17 @@ class disl_network(dispgrad_structure):
             origin of the simulation cell. The default is (0, 0, 0) at the center.
         bmag : float, optional
             magnitude of the Burger's vector. The default is None.
+        reduced : bool, optional
+            reduce discrete nodes on a single dislocation arm. The default is False.
         """
         if bmag is None:
             bmag = self.d['b']
         if origin is None:
             origin = tuple(-np.diag(self.cell)/2)
-        dio.write_ca(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
+        if reduced:
+            dio.group_segments(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
+        else:
+            dio.write_ca(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
 
     def displacement_gradient_seg(self, b, r1, r2, r, verbose=False):
         ''' Calculate the displacement gradient tensor of a dislocation segment
