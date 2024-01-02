@@ -249,15 +249,16 @@ CLUSTER_COLOR 1.0 1.0 1.0
 CLUSTER_SIZE 33452184
 END_CLUSTER'''
 
-def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
+def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=False):
     ''' Group connected segments into physical dislocation links '''
     cluster_orientation = bmag * np.identity(3) * 1e10
     rn = rn.copy() * bmag * 1e10
     cell = cell.copy() * bmag * 1e10
-    rn_scaled = np.linalg.inv(cell).dot(rn.T).T
-    rn_scaled[np.isclose(rn_scaled, 0.5)] = -0.5
-    # rn_scaled[np.isclose(rn_scaled, -0.5)] = -0.4
-    rn = cell.dot(rn_scaled.T).T
+    if pbc:
+        rn_scaled = np.linalg.inv(cell).dot(rn.T).T
+        rn_scaled[np.isclose(rn_scaled, 0.5)] = -0.5
+        # rn_scaled[np.isclose(rn_scaled, -0.5)] = -0.4
+        rn = cell.dot(rn_scaled.T).T
     origin = tuple(np.multiply(origin, bmag*1e10))
     # find all the repeated nodes
     rn, rn_idx = np.unique(rn, axis=0, return_inverse=True)
