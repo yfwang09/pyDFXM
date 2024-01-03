@@ -365,7 +365,7 @@ def visualize_disl_network(d, rn, links, extent=None, unit='b', figax=None, show
     for i in range(links.shape[0]):
         n12 = links[i, 0:2].astype(int)
         r12 = rn[n12, :]
-        ax.plot(r12[..., 0], r12[..., 1], r12[..., 2],  'ko-')
+        ax.plot(r12[..., 0], r12[..., 1], r12[..., 2],  'k.-')
     if extent is not None:
         ax.plot([lbx, lbx, ubx, ubx], [lby, lby, lby, lby], [ubz, lbz, lbz, ubz], 'k')
         ax.plot([lbx, lbx, ubx, ubx], [uby, lby, lby, uby], [ubz, ubz, ubz, ubz], 'k')
