@@ -18,7 +18,20 @@ import visualize_helper as vis
 
 # Configuration files
 casename = 'diamond_10um_60deg_pbc'
+# casename = 'diamond_10um_config1_pbc'
+# casename = 'diamond_10um_config2_pbc'
+# casename = 'diamond_10um_config3_pbc'
+# casename = 'diamond_10um_screw_helix1_pbc'
+# casename = 'diamond_10um_screw_helix2_pbc'
+# casename = 'diamond_10um_screw_helix3_pbc'
+# casename = 'diamond_10um_screw_pbc'
+# casename = 'diamond_DD0039'
 # casename = 'diamond_MD0_200x100x100'
+# casename = 'diamond_MD20000_189x100x100'
+# casename = 'diamond_MD50000_174x101x100'
+# casename = 'diamond_MD100000_149x100x101'
+# casename = 'diamond_MD150000_131x100x104'
+# casename = 'diamond_MD200000_114x100x107'
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
