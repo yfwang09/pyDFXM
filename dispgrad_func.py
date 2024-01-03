@@ -368,10 +368,12 @@ class disl_network(dispgrad_structure):
             bmag = self.d['b']
         if origin is None:
             origin = tuple(-np.diag(self.cell)/2)
+        ca_data = {}
         if reduced:
-            dio.group_segments(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
+            ca_data['rn'], ca_data['links'], ca_data['cell'], ca_data['disl_list'] = dio.group_segments(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
         else:
-            dio.write_ca(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
+            ca_data['rn'], ca_data['links'], ca_data['cell'] = dio.write_ca(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
+        return ca_data
 
     def displacement_gradient_seg(self, b, r1, r2, r, verbose=False):
         ''' Calculate the displacement gradient tensor of a dislocation segment

@@ -337,6 +337,7 @@ def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=Fals
             print('%d'%len(disl_i), file=f) # number of nodes
             for j in disl_i:
                 print('%.10f %.10f %.10f'%tuple(rn[j, :]), file=f)
+    return rn, links, cell, disl_list
 
 def write_ca(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
     """ Write Crystal Analysis file
@@ -363,6 +364,7 @@ def write_ca(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
             print('%d'%2, file=f) # number of nodes
             print('%.10f %.10f %.10f'%tuple(rn[links[i, 0].astype(int), :]), file=f)
             print('%.10f %.10f %.10f'%tuple(rn[links[i, 1].astype(int), :]), file=f)
+    return rn, links, cell
 
 def write_xyz(fileName, r, props=False, scale=1, ParticleTypes=None):
     """ Write XYZ file

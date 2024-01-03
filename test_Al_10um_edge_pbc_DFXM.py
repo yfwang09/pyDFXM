@@ -36,8 +36,10 @@ disl = dgf.disl_network(input_dict)
 disl.load_network(config_file)
 
 # Write the dislocation network into a CA file
-disl.write_network_ca(config_ca_file, bmag=bmag)
-disl.write_network_ca(config_reduced_ca_file, bmag=bmag, reduced=True)
+ca_data = disl.write_network_ca(config_ca_file, bmag=bmag)
+ca_data = disl.write_network_ca(config_reduced_ca_file, bmag=bmag, reduced=True)
+disl_list = ca_data['disl_list']
+print('Number of dislocations:', len(disl_list))
 
 #%%-------------------------------------------------------
 # CALCULATE THE DISPLACEMENT GRADIENT
