@@ -1,14 +1,12 @@
 # -----------------------------------------------------------------------
 # Functions for calculating the displacement gradient tensor of a given dislocation configuration
-# For testing the displacement gradient of non-singular dislocation segments
-# test_triangular_loop.py
-# -----------------------------------------------------------------------
 # Date: 2023-05-26
 # Original MATLAB code: Nicolas Bertin (bertin1@llnl.gov)
 # Python translation: Yifan Wang (yfwang09@stanford.edu)
 # -----------------------------------------------------------------------
 
 import numpy as np
+from numba import jit
 
 def displacement_gradient_seg_optimized(NU, b, r1, r2, r, a):
     ''' Calculate the displacement gradient tensor of a dislocation segment
@@ -101,6 +99,7 @@ def displacement_gradient_seg_optimized(NU, b, r1, r2, r, a):
     dudx = -1/8/np.pi*(U1 + U2 + 1/(1 - NU) * U3)
     return dudx
 
+@jit(nopython=True, cache=True)
 def displacement_gradient_seg_matlab(NU, b, r1, r2, r, a):
     ''' Calculate the displacement gradient tensor of a dislocation segment
     Direct translation from the MATLAB code displacement_gradient_seg.m
@@ -159,15 +158,30 @@ def displacement_gradient_seg_matlab(NU, b, r1, r2, r, a):
     A = 3*a2*d*J05 + 2*d*J03 + 3*a2*t*J15 + 2*t*J13
     # print('r', r, 'A', A) 
 
-    B1 = (np.einsum('mj,l->jlm', delta, d) + np.einsum('jl,m->jlm', delta, d) + np.einsum('lm,j->jlm', delta, d)) * J03
-    B2 = (np.einsum('mj,l->jlm', delta, t) + np.einsum('jl,m->jlm', delta, t) + np.einsum('lm,j->jlm', delta, t)) * J13
-    B3 = -3*np.einsum('m,j,l->jlm', d, d, d) * J05
-    B4 = -3*(np.einsum('m,j,l->jlm', d, d, t) + np.einsum('m,j,l->jlm', d, t, d) + np.einsum('m,j,l->jlm', t, d, d)) * J15
-    B5 = -3*(np.einsum('m,j,l->jlm', d, t, t) + np.einsum('m,j,l->jlm', t, d, t) + np.einsum('m,j,l->jlm', t, t, d)) * J25
-    B6 = -3*np.einsum('m,j,l->jlm', t, t, t) * J35
-    B  = B1 + B2 + B3 + B4 + B5 + B6
+    B = np.zeros((3,3,3))
+    for j in range(3):
+        for l in range(3):
+            for m in range(3):
+                B[j,l,m] = (delta[m,j]*d[l]+delta[j,l]*d[m]+delta[l,m]*d[j])*J03\
+                        +(delta[m,j]*t[l]+delta[j,l]*t[m]+delta[l,m]*t[j])*J13\
+                        -3*(d[m]*d[j]*d[l])*J05\
+                        -3*(d[m]*d[j]*t[l]+d[m]*t[j]*d[l]+t[m]*d[j]*d[l])*J15\
+                        -3*(d[m]*t[j]*t[l]+t[m]*d[j]*t[l]+t[m]*t[j]*d[l])*J25\
+                        -3*(t[m]*t[j]*t[l])*J35
+    # B1 = (np.einsum('mj,l->jlm', delta, d) + np.einsum('jl,m->jlm', delta, d) + np.einsum('lm,j->jlm', delta, d)) * J03
+    # B2 = (np.einsum('mj,l->jlm', delta, t) + np.einsum('jl,m->jlm', delta, t) + np.einsum('lm,j->jlm', delta, t)) * J13
+    # B3 = -3*np.einsum('m,j,l->jlm', d, d, d) * J05
+    # B4 = -3*(np.einsum('m,j,l->jlm', d, d, t) + np.einsum('m,j,l->jlm', d, t, d) + np.einsum('m,j,l->jlm', t, d, d)) * J15
+    # B5 = -3*(np.einsum('m,j,l->jlm', d, t, t) + np.einsum('m,j,l->jlm', t, d, t) + np.einsum('m,j,l->jlm', t, t, d)) * J25
+    # B6 = -3*np.einsum('m,j,l->jlm', t, t, t) * J35
+    # B  = B1 + B2 + B3 + B4 + B5 + B6
 
-    Ab = np.einsum('i,j,k->ijk', A, t, b)
+    Ab = np.zeros((3,3,3))
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                Ab[i,j,k] = A[i]*t[j]*b[k]
+    # Ab = np.einsum('i,j,k->ijk', A, t, b)
     
     U1 = np.zeros((3, 3))
     U2 = np.zeros((3, 3))
@@ -187,6 +201,7 @@ def displacement_gradient_seg_matlab(NU, b, r1, r2, r, a):
     dudx = -1/8/np.pi*(U1 + U2 + 1/(1 - NU) * U3)
     return dudx
 
+@jit(nopython=True, cache=True)
 def displacement_gradient_structure_matlab(rn, links, NU, a, r, test=False):
     '''Computes the non-singular displacement gradient produced by the dislocation structure.
 
@@ -213,8 +228,8 @@ def displacement_gradient_structure_matlab(rn, links, NU, a, r, test=False):
         # it = np.nditer(r, flags=['multi_index'])
         for j in range(r.shape[0]):
             for i in range(links.shape[0]):
-                n1 = links[i, 0].astype(int)
-                n2 = links[i, 1].astype(int)
+                n1 = int(links[i, 0])
+                n2 = int(links[i, 1])
                 r1 = rn[n1, :]
                 r2 = rn[n2, :]
                 b = links[i, 2:5]
@@ -246,8 +261,8 @@ def displacement_gradient_structure(rn, links, NU, a, r, test=False):
     dudx = np.zeros((r.shape[0], 3, 3))
     if not test:
         for i in range(links.shape[0]):
-            n1 = links[i, 0].astype(int)
-            n2 = links[i, 1].astype(int)
+            n1 = int(links[i, 0])#.astype(int)
+            n2 = int(links[i, 1])#.astype(int)
             r1 = rn[n1, :]
             r2 = rn[n2, :]
             b = links[i, 2:5]

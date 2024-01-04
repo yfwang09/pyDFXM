@@ -1,4 +1,4 @@
-#-----------------------------------------------------------------------
+#%%----------------------------------------------------------------------
 # Non-singular displacement gradient for a triangular dislocation loop
 #
 # This notebook tests the non-singular displacement gradient for
@@ -26,6 +26,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import dispgrad_func as dgf
+import time
 from displacement_grad_helper import displacement_structure, displacement_gradient_structure_matlab
 
 #---------------------------------------------------------
@@ -79,6 +80,7 @@ for i in range(links.shape[0]):
 # Evaluate strain gradient from non-singular expression 
 # along a x-line passing through the center of the loop
 N = 50 # Number of points along the line
+N = 10000
 r = np.zeros((N, 3))
 r[:, 0] = np.linspace(0, L, N)
 r[:, 1] = np.mean(rn[:, 1])
@@ -88,10 +90,17 @@ plt.legend()
 
 # Evaluate the displacement gradient field using the analytical expression (Bertin and Cai, CMS, 2018)
 # The length is normalized to the unit of Burger's vector (bmag)
+tic = time.time()
 dudx = disl.displacement_gradient_structure(r)
+toc = time.time()
+print('Time to evaluate displacement gradient field: ', toc-tic)
+tic = time.time()
 dudx_ref = displacement_gradient_structure_matlab(rn, links, NU, a, r)
+toc = time.time()
+print('Time to evaluate displacement gradient field (reference): ', toc-tic)
 print('dudx error: ', np.linalg.norm(dudx - dudx_ref))
 
+#%%-------------------------------------------------------
 # Evaluate displacement gradient by numerically differentiating the displacement field
 delta = 2
 rd = r.copy()
