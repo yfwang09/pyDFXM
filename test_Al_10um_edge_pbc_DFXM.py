@@ -98,7 +98,7 @@ print('#'*20 + ' Calculate and visualize the image')
 saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename)
 print('saved displacement gradient at %s'%saved_Fg_file)
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
-im, ql, rulers = model.forward(Fg_func)
+im, ql, rulers = model.forward(Fg_func, timeit=True)
 
 # Visualize the simulated image
 figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
