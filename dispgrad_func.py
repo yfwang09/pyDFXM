@@ -350,7 +350,7 @@ class disl_network(dispgrad_structure):
         self.d['links'] = self.links = links
         self.d['cell'] = self.cell = cell
 
-    def write_network_ca(self, filename, origin=None, bmag=None, reduced=False):
+    def write_network_ca(self, filename, origin=None, bmag=None, reduced=False, pbc=False):
         """ Write Crystal Analysis file
 
         Parameters
@@ -370,7 +370,7 @@ class disl_network(dispgrad_structure):
             origin = tuple(-np.diag(self.cell)/2)
         ca_data = {}
         if reduced:
-            ca_data['rn'], ca_data['links'], ca_data['cell'], ca_data['disl_list'] = dio.group_segments(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
+            ca_data['rn'], ca_data['links'], ca_data['cell'], ca_data['disl_list'] = dio.group_segments(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag, pbc=pbc)
         else:
             ca_data['rn'], ca_data['links'], ca_data['cell'] = dio.write_ca(filename, self.rn, self.links, self.cell, origin=origin, bmag=bmag)
         return ca_data
