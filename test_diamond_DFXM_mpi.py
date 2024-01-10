@@ -137,6 +137,7 @@ for a_piece_of_work in work_content:
     disl.load_network(config_file, select_seg=[iseg, ])
     model.d['phi'] = phi
     model.d['chi'] = chi
+    L = np.mean(np.diag(disl.cell))
 
     saved_Fg_file = os.path.join(Fg_path, 'Fg_iseg%d_phi%g_chi%g.npz'%(iseg, phi, chi))
     im_qi_file = os.path.join(im_path, 'im_iseg%d_phi%g_chi%g.npz'%(iseg, phi, chi))
@@ -146,3 +147,22 @@ for a_piece_of_work in work_content:
     im, ql, rulers = model.forward(Fg_func, timeit=True)
     ruler_x, ruler_y, ruler_z = rulers
     np.savez_compressed(im_qi_file, im=im, ql=ql, ruler_x=ruler_x, ruler_y=ruler_y, ruler_z=ruler_z)
+
+    # Visualize the simulated image
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False) #, vlim_im=[0, 200])
+    fig, ax = figax[0], figax[1]
+    fig.savefig(os.path.join(im_path, 'dfxm_im_iseg%d_phi%g_chi%g.png'%(iseg, phi, chi)))
+    plt.close()
+
+    # Visualize the reciprocal space wave vector ql
+    # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+
+    # Visualize the observation points
+    lb, ub = -L/2, L/2                                  # in unit of b
+    extent = np.multiply(bmag*1e6, [lb, ub, lb, ub, lb, ub]) # in the unit of um
+    fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
+    nskip = 10
+    r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
+    ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+    fig.savefig(os.path.join(im_path, 'disl_im_iseg%d_phi%g_chi%g.png'%(iseg, phi, chi)))
+    plt.close()
