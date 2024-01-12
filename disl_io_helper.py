@@ -274,11 +274,13 @@ def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=Fals
     # print(conn)
     disl_used = np.zeros(links.shape[0], dtype=bool)
     disl_list = []
+    disl_edge_list = []
     for i in range(links.shape[0]):
         if disl_used[i]:
             continue
         disl_used[i] = True
         disl_node = [links[i, 0].astype(int), links[i, 1].astype(int)]
+        disl_edge = [i, ]
         # print(disl_node[0], conn.getrow(disl_node[0]))
         # print(disl_node[-1], conn.getrow(disl_node[-1]))
         # extend the dislocation left
@@ -300,6 +302,7 @@ def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=Fals
             link_left_to = conn_row_nonzero.sum() - disl_node[1]
             disl_used[link_left] = True
             disl_node.insert(0, link_left_to)
+            disl_edge.insert(0, link_left)
         # extend the dislocation right
         while True:
             conn_row = conn.getrow(disl_node[-1])
@@ -317,7 +320,9 @@ def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=Fals
             link_right_to = conn_row_nonzero.sum() - disl_node[-2]
             disl_used[link_right] = True
             disl_node.append(link_right_to)
+            disl_edge.append(link_right)
         disl_list.append(disl_node)
+        disl_edge_list.append(disl_edge)
 
     with open(filename, 'w') as f:
         print(default_ca_header, file=f)
@@ -337,7 +342,7 @@ def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=Fals
             print('%d'%len(disl_i), file=f) # number of nodes
             for j in disl_i:
                 print('%.10f %.10f %.10f'%tuple(rn[j, :]), file=f)
-    return rn, links, cell, disl_list
+    return rn, links, cell, disl_list, disl_edge_list
 
 def write_ca(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
     """ Write Crystal Analysis file

@@ -5,7 +5,7 @@
 # Date: 2023/12/31
 #---------------------------------------------------------------
 
-import os, time
+import os, sys, time
 import numpy as np
 import matplotlib.pyplot as plt
 import dispgrad_func as dgf
@@ -20,6 +20,11 @@ from mpi4py import MPI
 
 # Configuration files
 casename = 'diamond_10um_60deg_pbc'
+if len(sys.argv) > 1:
+    casename = sys.argv[1]
+
+scale_cell = 1.0/4
+
 # casename = 'diamond_10um_config1_pbc'
 # casename = 'diamond_10um_config2_pbc'
 # casename = 'diamond_10um_config3_pbc'
@@ -75,13 +80,13 @@ os.makedirs(im_path, exist_ok=True)
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
-print('The %dth worker is initiated.'%rank)
+print('The %d-%dth worker is initiated.'%(rank, size))
 
 disl_nseg = np.arange(nLinks, dtype=int)
-# phi_values = np.linspace(-0.001, 0.001, 21).round(4)
-phi_values = np.array([0.0, ])
-# chi_values = np.linspace(-0.001, 0.001, 21).round(4)
-chi_values = np.array([0.0, ])
+phi_values = np.linspace(-0.001, 0.001, 21).round(4)
+# phi_values = np.array([0.0, ])
+chi_values = np.linspace(-0.001, 0.001, 21).round(4)
+# chi_values = np.array([0.0, ])
 
 job_content = list(product(disl_nseg, phi_values, chi_values))
 numjobs = len(job_content)
@@ -94,7 +99,7 @@ if rank == 0:
     job_all_idx = np.arange(numjobs, dtype='i')
     # Shuffle the job index to make all workers equal
     # for unbalanced jobs
-    np.random.shuffle(job_all_idx)
+    # np.random.shuffle(job_all_idx)
     # print(job_all_idx)
 else:
     job_all_idx = np.empty(numjobs, dtype='i')
@@ -131,38 +136,54 @@ for a_piece_of_work in work_content:
     # print('#'*20 + ' Calculate and visualize the image')
     # print(a_piece_of_work)
     iseg, phi, chi = a_piece_of_work
-    print('Worker %d is calculating: iseg=%d, phi=%g, chi=%g'%(rank, iseg, phi, chi))
+    print('Worker %d is calculating: iseg=%d, phi=%g, chi=%g'%(rank, iseg, phi, chi), end=';')
     
     # set up the work content
-    disl.load_network(config_file, select_seg=[iseg, ])
+    disl.load_network(config_file, scale_cell=scale_cell, select_seg=[iseg, ])
     model.d['phi'] = phi
     model.d['chi'] = chi
-    L = np.mean(np.diag(disl.cell))
+    # L = np.mean(np.diag(disl.cell))
+    Lx, Ly, Lz = tuple(np.diag(disl.cell))
 
-    saved_Fg_file = os.path.join(Fg_path, 'Fg_iseg%d_phi%g_chi%g.npz'%(iseg, phi, chi))
-    im_qi_file = os.path.join(im_path, 'im_iseg%d_phi%g_chi%g.npz'%(iseg, phi, chi))
+    saved_Fg_file = os.path.join(Fg_path, 'Fg_iseg%d_phi%.4f_chi%.4f.npz'%(iseg, phi, chi))
+    im_qi_file = os.path.join(im_path, 'im_iseg%d_phi%.4f_chi%.4f.npz'%(iseg, phi, chi))
     # print('saved displacement gradient at %s'%saved_Fg_file)
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 
-    im, ql, rulers = model.forward(Fg_func, timeit=True)
-    ruler_x, ruler_y, ruler_z = rulers
-    np.savez_compressed(im_qi_file, im=im, ql=ql, ruler_x=ruler_x, ruler_y=ruler_y, ruler_z=ruler_z)
+    tic = time.time()
+    # if not os.path.exists(im_qi_file):
+    try:
+        Fg = np.load(saved_Fg_file)['Fg']
+    except:
+        if os.path.exists(saved_Fg_file):
+            os.remove(saved_Fg_file)
+        im, ql, rulers = model.forward(Fg_func) #, timeit=True)
+        ruler_x, ruler_y, ruler_z = rulers
+        # np.savez_compressed(im_qi_file, im=im, ql=ql, ruler_x=ruler_x, ruler_y=ruler_y, ruler_z=ruler_z)
 
-    # Visualize the simulated image
-    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False) #, vlim_im=[0, 200])
-    fig, ax = figax[0], figax[1]
-    fig.savefig(os.path.join(im_path, 'dfxm_im_iseg%d_phi%g_chi%g.png'%(iseg, phi, chi)))
-    plt.close()
+        # Visualize the simulated image
+        # savefile = os.path.join(im_path, 'dfxm_im_iseg%d_phi%.4f_chi%.4f.png'%(iseg, phi, chi))
+        # if not os.path.exists(savefile):
+        #     figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False) #, vlim_im=[0, 200])
+        #     fig, ax = figax[0], figax[1]
+        #     fig.savefig(savefile)
+        #     plt.close()
 
-    # Visualize the reciprocal space wave vector ql
-    # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+        # Visualize the reciprocal space wave vector ql
+        # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
 
     # Visualize the observation points
-    lb, ub = -L/2, L/2                                  # in unit of b
-    extent = np.multiply(bmag*1e6, [lb, ub, lb, ub, lb, ub]) # in the unit of um
-    fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
-    nskip = 10
-    r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
-    ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
-    fig.savefig(os.path.join(im_path, 'disl_im_iseg%d_phi%g_chi%g.png'%(iseg, phi, chi)))
-    plt.close()
+    savefile = os.path.join(im_path, 'disl_im_iseg%d.png'%(iseg, ))
+    if not os.path.exists(savefile):
+        lbx, ubx, lby, uby, lbz, ubz = -Lx/2, Lx/2, -Ly/2, Ly/2, -Lz/2, Lz/2 # in unit of b
+        extent = np.multiply(bmag*1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
+        fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
+        nskip = 10
+        r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
+        ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+
+        fig.savefig(savefile)
+        plt.close()
+
+    toc = time.time()
+    print(' takes %.2f seconds.'%(toc-tic))

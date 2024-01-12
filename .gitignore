@@ -1,6 +1,10 @@
 # Saved data, figures
 data/
 configs/
+data
+slurm-*.out
+*.ca
+*.npz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
