@@ -348,6 +348,9 @@ def visualize_disl_network(d, rn, links, extent=None, unit='b', figax=None, show
     if unit == 'um':
         rn = rn*bmag*1e6
         unit_str = r'$\mu$m'
+    elif unit == 'm':
+        rn = rn*bmag
+        unit_str = 'm'
     elif unit == 'A':
         rn = rn*bmag*1e10
         unit_str = r'$\AA$'

@@ -371,7 +371,7 @@ def write_ca(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
             print('%.10f %.10f %.10f'%tuple(rn[links[i, 1].astype(int), :]), file=f)
     return rn, links, cell
 
-def write_xyz(fileName, r, props=False, scale=1, ParticleTypes=None):
+def write_xyz(fileName, r, props=None, scale=1, ParticleTypes=None):
     """ Write XYZ file
     """
     nAtoms = r.shape[0]
