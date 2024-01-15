@@ -78,12 +78,16 @@ Ug = model.Ug
 print('Ug')
 print(Ug)
 
-L = np.mean(np.diag(disl.cell))
-lb, ub = -L/2*bmag, L/2*bmag            # in unit of m
+# L = np.mean(np.diag(disl.cell))
+Lx, Ly, Lz = tuple(np.diag(disl.cell))
+# lb, ub = -L/2*bmag, L/2*bmag            # in unit of m
+lbx, ubx = -Lx/2*bmag, Lx/2*bmag         # in unit of m
+lby, uby = -Ly/2*bmag, Ly/2*bmag         # in unit of m
+lbz, ubz = -Lz/2*bmag, Lz/2*bmag         # in unit of m
 Ngrid = 50
-xs = np.linspace(lb, ub, Ngrid)         # (Ngrid, )
-ys = np.linspace(lb, ub, Ngrid)         # (Ngrid, )
-zs = np.linspace(lb, ub, Ngrid)         # (Ngrid, )
+xs = np.linspace(lbx, ubx, Ngrid)         # (Ngrid, )
+ys = np.linspace(lby, uby, Ngrid)         # (Ngrid, )
+zs = np.linspace(lbz, ubz, Ngrid)         # (Ngrid, )
 
 XX, YY, ZZ = np.meshgrid(xs, ys, zs)    # (Ngrid, Ngrid, Ngrid)
 Rs = np.stack([XX,YY,ZZ], -1)           # (Ngrid, Ngrid, Ngird, 3)
@@ -100,7 +104,7 @@ print('Visualize the displacement gradient')
 i, j = 1, 2
 vmin, vmax = -1e-4, 1e-4
 fs = 12
-extent = np.multiply(1e6, [lb, ub, lb, ub, lb, ub]) # in the unit of um
+extent = np.multiply(1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
 figax = vis.plot_3d_slice_z(Fg[:, :, :, i, j], extent=extent, vmin=vmin, vmax=vmax, nslice=5, fs=fs, show=False)
 figax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, unit='um', figax=figax, show=False)
 plt.show()
@@ -122,8 +126,7 @@ figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
 # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
 
 # Visualize the observation points
-lb, ub = -L/2, L/2                                  # in unit of b
-extent = np.multiply(bmag*1e6, [lb, ub, lb, ub, lb, ub]) # in the unit of um
+extent = np.multiply(1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
 fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
 nskip = 10
 r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
