@@ -375,7 +375,7 @@ def visualize_disl_network(d, rn, links, extent=None, unit='b', figax=None, show
     ax.set_xlabel(r'x(%s)'%unit_str)
     ax.set_ylabel(r'y(%s)'%unit_str)
     ax.set_zlabel(r'z(%s)'%unit_str)
-    ax.axis('equal')
+    # ax.axis('equal')
     if show:
         plt.show()
     return (fig, ax)

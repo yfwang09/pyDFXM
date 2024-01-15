@@ -265,7 +265,7 @@ def group_segments(filename, rn, links, cell, origin=(0, 0, 0), bmag=1, pbc=Fals
     links = links.copy()
     links[:, 0:2] = rn_idx[links[:, 0:2].astype(int)]
     # construct a sparse connectivity matrix (sparse matrix)
-    conn = sp.sparse.lil_array((rn.shape[0], rn.shape[0]), dtype=int)
+    conn = sp.sparse.lil_matrix((rn.shape[0], rn.shape[0]), dtype=int)
     for i in range(links.shape[0]):
         conn[links[i, 0].astype(int), links[i, 1].astype(int)] = i + 1
         conn[links[i, 1].astype(int), links[i, 0].astype(int)] = i + 1
