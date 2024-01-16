@@ -21,7 +21,7 @@ import numpy as np
 import disl_io_helper as dio
 # from disl_io_helper import read_vtk, write_ca
 # from io_helper import default_ca_header, simulation_cell_header, cluster_header
-# import displacement_grad_helper as dgh
+import displacement_grad_helper as dgh
 
 def default_dispgrad_dict(dispgrad_type='simple_shear'):
     '''Generate a default displacement gradient dictionary
@@ -546,7 +546,10 @@ class disl_network(dispgrad_structure):
         else:
             if verbose:
                 print('Calculating displacement gradient')
-            Fg_list = self.displacement_gradient_structure(rnorm, zeros=zeros, verbose=verbose)
+            # Fg_list = self.displacement_gradient_structure(rnorm, zeros=zeros, verbose=verbose)
+            Fg_list = np.zeros((rnorm.shape[0], 3, 3))
+            if not zeros:
+                Fg_list = dgh.displacement_gradient_structure_matlab(self.rn, self.links, self.d['nu'], self.a, rnorm)
             if filename is not None:
                 np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
 

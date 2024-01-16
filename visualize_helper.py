@@ -372,6 +372,10 @@ def visualize_disl_network(d, rn, links, extent=None, unit='b', figax=None, show
     if extent is not None:
         ax.plot([lbx, lbx, ubx, ubx], [lby, lby, lby, lby], [ubz, lbz, lbz, ubz], 'k')
         ax.plot([lbx, lbx, ubx, ubx], [uby, lby, lby, uby], [ubz, ubz, ubz, ubz], 'k')
+        Lx = ubx - lbx
+        Ly = uby - lby
+        Lz = ubz - lbz
+        ax.set_box_aspect((Lx, Ly, Lz))
     ax.set_xlabel(r'x(%s)'%unit_str)
     ax.set_ylabel(r'y(%s)'%unit_str)
     ax.set_zlabel(r'z(%s)'%unit_str)
