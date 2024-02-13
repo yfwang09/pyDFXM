@@ -88,6 +88,17 @@ def read_vtk(fileName, scale_cell=1, verbose=False, select_seg=None):
 
     return rn, links, cell
 
+def create_single_disl(xi, b=[1,1,0], n=[1,-1,1], L=20000, shift=[0,0,0]):
+    xi = np.divide(xi, np.linalg.norm(xi))
+    b  = np.divide(b,  np.linalg.norm(b))
+    n  = np.divide(n,  np.linalg.norm(n))
+    rn = np.add([L/2 * xi, -L/2 * xi], shift) 
+    links = np.array([[0, 1, ], ])
+    links = np.hstack([links, np.tile(b, (1, 1)), np.tile(n, (1, 1))])
+    cell = np.diag([L, L, L])
+
+    return rn, links, cell
+
 default_ca_header = '''CA_FILE_VERSION 6
 CA_LIB_VERSION 0.0.0
 STRUCTURE_TYPES 5
