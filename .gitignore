@@ -4,6 +4,7 @@ configs/
 data
 slurm-*.out
 *.ca
+*.xyz
 *.npz
 
 # Byte-compiled / optimized / DLL files
