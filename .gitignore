@@ -6,6 +6,8 @@ slurm-*.out
 *.ca
 *.xyz
 *.npz
+*.png
+*.vtk
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
