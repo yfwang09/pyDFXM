@@ -36,31 +36,28 @@ disl = dgf.disl_network(input_dict)
 # SETUP THE FORWARD MODEL
 #---------------------------------------------------------
 
-forward_dict = fwd.default_forward_dict()
-forward_dict['two_theta'] = two_theta
-print(forward_dict)
+# bvec = [1, 0, 1]; nvec = [1, 1, -1]; rvec = [1, 1, -1]
+# bvec = [1, 0, 1]; nvec = [1, 1, -1]; rvec = [1,-1,-1]
 
-# bvec = [1, 0, 1]
-# nvec = [1, 1, -1]
-# rvec = [0, 0, 1]
-# rvec = [1, 1, -1]
-# rvec = [1,-1,-1]
+bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [0, 0, 1]
+# bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [1,-1, 1]
 
-bvec = [1, 1, 0]
-nvec = [1,-1, 1]
-rvec = [0, 0, 1]
-rvec = [1,-1, 1]
-
-rt = [0, 30, 60, 90, 120, 150] # rotate angle of xi
+# rt = np.arange(-180, 180, 30, dtype=int) # rotate angle of xi
+rt = np.arange(0, 180, 30, dtype=int) # rotate angle of xi
 
 bvecname = 'b%d%d%d'%(bvec[0], bvec[1], bvec[2])
 nvecname = 'n%d%d%d'%(nvec[0], nvec[1], nvec[2])
 rvecname = 'rvec%d%d%d'%(rvec[0], rvec[1], rvec[2])
 
+forward_dict = fwd.default_forward_dict()
+forward_dict['two_theta'] = two_theta
+forward_dict['npoint1'] = forward_dict['npoint2'] = forward_dict['npoint3'] = 800
+print(forward_dict)
+
 # Set up the pre-calculated resolution function
 datapath = os.path.join('data', casename + '_' + bvecname + '_' + nvecname)
 os.makedirs(datapath, exist_ok=True)
-saved_res_fn = os.path.join('data', 'Res_qi_diamond_001.npz')
+saved_res_fn = os.path.join('data', 'Res_qi_diamond_001_1e-5.npz')
 print('saved resolution function at %s'%saved_res_fn)
 
 # Set up the pre-calculated displacement gradient
@@ -103,15 +100,18 @@ disl.d['links'] = disl.links = np.array([])
 
 from itertools import product
 
-phi_values = np.linspace(-0.001, 0.001, 21).round(4)
+# phi_values = np.linspace(-0.001, 0.001, 21).round(4)
+phi_values = np.array([-0.0002, -0.00015, -0.0001, -0.00005, 0, 0.00005, 0.0001, 0.00015, 0.0002])
+phi_values = np.linspace(-0.0001, 0.0001, 11).round(5)
 chi_values = [0, ]
 # chi_values = np.linspace(-0.001, 0.001, 21).round(4)
 
-savename = rvecname+'_'+bvecname
+savename = rvecname+'_'+bvecname+'_fine_phi_chi'
 
 if os.path.exists(savename + '.npz'):
     rawdata = np.load(savename + '.npz')
     Imax, Imin = rawdata['Imax'], rawdata['Imin']
+    rt = rawdata['rt']
 else:
     Imax = np.zeros((len(rt), len(phi_values), len(chi_values)))
     Imin = np.zeros((len(rt), len(phi_values), len(chi_values)))
@@ -136,6 +136,7 @@ else:
         print('#'*10 + ' Calculate and visualize the image for xi = %s, phi = %s, chi = %s'%(xi, phi, chi) + '#'*10)
 
         saved_Fg_file = os.path.join(datapath, 'Fg_%s_%s_%d_%.4f_%.4f_DFXM.npz'%(casename, rvecname, th, phi, chi))
+        saved_Fg_file = os.path.join(datapath, 'Fg_%s_%s_%d_%.5f_%.5f_DFXM.npz'%(casename, rvecname, th, phi, chi))
         print('saved displacement gradient at %s'%saved_Fg_file)
         Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
         im, ql, rulers = model.forward(Fg_func, timeit=True)
@@ -145,6 +146,7 @@ else:
         # Visualize the simulated image
         figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False) #, vlim_im=[0, 200])
         saved_im_file = os.path.join(datapath, 'im_%s_%s_%d_%.4f_%.4f_DFXM.png'%(casename, rvecname, th, phi, chi))
+        saved_im_file = os.path.join(datapath, 'im_%s_%s_%d_%.5f_%.5f_DFXM.png'%(casename, rvecname, th, phi, chi))
         figax[0].savefig(saved_im_file, dpi=300)
         print('saved the image at %s'%saved_im_file)
         plt.close()
@@ -177,9 +179,31 @@ for i in range(len(rt)):
     ax.plot(phi_values*1000, Imax[i, :, 0].T - Imin[i, :, 0].T, 'o-', label=r'$I_{\max} - I_{\min}(%d\degree)$'%rt[i])
     # ax.plot(phi_values, Imax[i, :, 0].T, '^-C%d'%i, label=r'$I_{\rm max}(%d\degree)$'%rt[i])
     # ax.plot(phi_values, Imin[i, :, 0].T, 'v-C%d'%i, label=r'$I_{\rm min}(%d\degree)$'%rt[i])
+ax.set_xticks(phi_values[::2]*1000)
 ax.set_ylabel('Intensity')
 ax.set_xlabel(r'$\phi(\times0.001\degree)$')
 ax.legend()
+
+fig, ax = plt.subplots()
+for iphi in range(phi_values.size//2, phi_values.size, 2):
+    xval = rt
+    yval = Imax[:, iphi, 0] - Imin[:, iphi, 0]
+    ax.plot(np.append(xval, 180), np.append(yval, yval[0]), 'o-', label=r'$\phi=%.5f$'%phi_values[iphi])
+    ax.set_ylabel('Intensity')
+    ax.set_xlabel(r'$\alpha(\degree)$')
+    ax.legend()
+for ic, iphi in enumerate(range(phi_values.size//2, -1, -2)):
+    xval = rt
+    yval = Imax[:, iphi, 0] - Imin[:, iphi, 0]
+    ax.plot(-np.append(xval, 180), np.append(yval, yval[0]), 'o-C%d'%ic, label=r'$\phi=%.5f$'%phi_values[iphi])
+    ax.set_ylabel('Intensity')
+    ax.set_xlabel(r'$\alpha(\degree)$')
+    ax.legend()
+
+# ax.set_xlim(0, 180)
+# ax.set_xlim(-90, 90)
+# ax.set_xlim(np.min(rt), np.max(rt) + 30)
+
 plt.show()
 
 # %%
@@ -205,13 +229,15 @@ for i, th in enumerate(rt):
 disl.d['rn'] = disl.rn = np.vstack(rn_full)
 disl.d['links'] = disl.links = np.vstack(links_full)
 disl.d['cell'] = disl.cell = cell
-print(disl.rn)
-print(disl.links)
+# print(disl.rn)
+# print(disl.links)
 
 config_ca_file = savename + '.ca'
-ca_data = disl.write_network_ca(config_ca_file, bmag=bmag)
+if not os.path.exists(config_ca_file):
+    ca_data = disl.write_network_ca(config_ca_file, bmag=bmag)
 
-r_obs_xyz_file = savename + '.xyz'
+r_obs_xyz_file = 'robs.xyz'
 saved_Fg_file = os.path.join('data', 'Fg_%s_DFXM_robs.npz'%casename)
-r_obs = np.load(saved_Fg_file)['r_obs']
-dio.write_xyz(r_obs_xyz_file, r_obs, scale=1e10)
+if not os.path.exists(r_obs_xyz_file):
+    r_obs = np.load(saved_Fg_file)['r_obs']
+    dio.write_xyz(r_obs_xyz_file, r_obs, scale=1e10)
