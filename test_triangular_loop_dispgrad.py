@@ -98,6 +98,10 @@ tic = time.time()
 dudx_ref = displacement_gradient_structure_matlab(rn, links, NU, a, r)
 toc = time.time()
 print('Time to evaluate displacement gradient field (reference): ', toc-tic)
+tic = time.time()
+dudx_ref = displacement_gradient_structure_matlab(rn, links, NU, a, r)
+toc = time.time()
+print('Time to evaluate displacement gradient field (jit): ', toc-tic)
 print('dudx error: ', np.linalg.norm(dudx - dudx_ref))
 
 #%%-------------------------------------------------------

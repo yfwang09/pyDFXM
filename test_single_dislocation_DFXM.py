@@ -36,11 +36,17 @@ disl = dgf.disl_network(input_dict)
 # SETUP THE FORWARD MODEL
 #---------------------------------------------------------
 
+bvec = [1, 0,-1]; nvec = [1, 1, 1]; rvec = [1, 1, 1]
+bvec = [1, 0,-1]; nvec = [1, -1, 1]; rvec = [1, -1, 1]
+
 # bvec = [1, 0, 1]; nvec = [1, 1, -1]; rvec = [1, 1, -1]
 # bvec = [1, 0, 1]; nvec = [1, 1, -1]; rvec = [1,-1,-1]
 
 bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [0, 0, 1]
-bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [1,-1, 1]
+# bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [1,-1, 1]
+
+# bvec = [0, 1, 1]; nvec = [1, 1, -1]; rvec = [1, 1, -1]
+# bvec = [0, 1, 1]; nvec = [1, -1, 1]; rvec = [1, -1, 1]
 
 # rt = np.arange(-180, 180, 30, dtype=int) # rotate angle of xi
 rt = np.arange(0, 180, 30, dtype=int) # rotate angle of xi
@@ -180,9 +186,10 @@ else:
 #%%
     
 fig, ax = plt.subplots()
-for i in [1, 2]:
-    ax.plot(phi_values*1000, Imax[i, :, 0].T, '^-C%d'%i, label=r'$I_{\rm max}(%d\degree)$'%rt[i])
-    ax.plot(phi_values*1000, Imin[i, :, 0].T, 'v-C%d'%i, label=r'$I_{\rm min}(%d\degree)$'%rt[i])
+for i in [0, 1, 2, 3]:
+    # ax.plot(phi_values*1000, Imax[i, :, 0].T, '^-C%d'%i, label=r'$I_{\rm max}(%d\degree)$'%rt[i])
+    # ax.plot(phi_values*1000, Imin[i, :, 0].T, 'v-C%d'%i, label=r'$I_{\rm min}(%d\degree)$'%rt[i])
+    ax.fill_between(phi_values*1000, Imin[i, :, 0].T, Imax[i, :, 0].T, alpha=0.5, label=r'$\alpha = %d\degree$'%rt[i], color='C%d'%i)
 ax.set_xticks(phi_values[::2]*1000)
 ax.set_ylabel('Itensity ($I$)')
 ax.set_xlabel(r'$\phi(\times0.001\degree)$')
@@ -207,7 +214,7 @@ fig, ax = plt.subplots()
 xval = rt
 for iphi in range(phi_values.size//2, phi_values.size, 2):
     yval = Imax[:, iphi, 0] - Imin[:, iphi, 0]
-    yval = yval / np.maximum(np.max(Imax[:, iphi, 0]), 1)
+    # yval = yval / np.maximum(np.max(Imax[:, iphi, 0]), 1)
     ax.plot(np.append(xval, 180), np.append(yval, yval[0]), 'o-', label=r'$\phi=%.5f$'%phi_values[iphi])
 # for ic, iphi in enumerate(range(phi_values.size//2, -1, -2)):
 #     yval = Imax[:, iphi, 0] - Imin[:, iphi, 0]
@@ -218,11 +225,12 @@ ax.set_ylabel('Contrast ($\Delta I$)')
 ax.set_xlabel(r'$\alpha(\degree)$')
 ax.legend()
 
-# ax.set_xlim(0, 180)
+ax.set_xlim(0, 180)
 # ax.set_xlim(-90, 90)
 # ax.set_xlim(np.min(rt), np.max(rt) + 30)
-ax.set_xlim(-180, 180)
-xticks = np.arange(-180, 181, 30)
+# ax.set_xlim(-180, 180)
+# xticks = np.arange(-180, 181, 30)
+xticks = np.arange(0, 181, 30)
 ax.set_xticks(xticks)
 ax.set_xticklabels(np.abs(xticks))
 

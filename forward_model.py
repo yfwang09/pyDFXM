@@ -142,8 +142,8 @@ class DFXM_forward():
 
         # Sample incoming rays
         if saved_q is None:
-            # zeta_v = np.random.randn(Nrays)*d['zeta_v_rms']
-            zeta_v = (np.random.rand(Nrays) - 0.5)*d['zeta_v_rms']*2.35 # using uniform distribution to be consistent with Henning's implementation
+            zeta_v = np.random.randn(Nrays)*d['zeta_v_rms']
+            # zeta_v = (np.random.rand(Nrays) - 0.5)*d['zeta_v_rms']*2.35 # using uniform distribution to be consistent with Henning's implementation
             zeta_h = np.random.randn(Nrays)*d['zeta_h_rms']
             eps    = np.random.randn(Nrays)*d['eps_rms']
 
@@ -350,12 +350,12 @@ class DFXM_forward():
         if timeit:
             print('Initialization time: %.2fs'%(time.time() - tic))
         
-        XL = XL0 + ZL/np.tan(2*theta)
+        XL = XL0 + ZL/np.tan(2*theta)           # Project to image system
         PZ = np.exp(-0.5*(ZL/zl_rms)**2)        # Gaussian beam in zl (a thin slice of sample)
         RL = np.stack([XL, YL, ZL], axis=-1)    # (NNy,NNz,NNx,3)
         # Determine the location of the pixel on the detector
         DET_IND_Y = np.round((YL-yl_start)/yl_step).astype(int)//Nsub # THIS ALIGNS WITH yl
-        DET_IND_Z = np.round((XL0-xl_start)/xl_step).astype(int)//Nsub # THIS IS THE OTHER DETECTOR DIRECTION AND FOLLOWS xl BUT ROTATES 90 DEGS BECAUSE OF THE SETUP
+        DET_IND_Z = np.round((XL0-xl_start)/xl_step).astype(int)//Nsub # THIS IS THE OTHER DETECTOR DIRECTION AND FOLLOWS xl BUT WITH MAGNIFICATION
         RS = np.einsum('ji,...j->...i', Gamma, RL) # NB: Gamma inverse Eq. 5
         RG = np.einsum('ji,...j->...i', U, RS)     # NB U inverse, Eq. 7
         Fg = Fg_fun(RG[..., 0], RG[..., 1], RG[..., 2]) # calculate the displacement gradient
