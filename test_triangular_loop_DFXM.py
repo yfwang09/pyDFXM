@@ -56,6 +56,13 @@ disl = dgf.disl_network(input_dict)
 #---------------------------------------------------------
 
 forward_dict = fwd.default_forward_dict()
+
+# if you want to change the forward model setup
+# forward_dict['hkl'] = [1, 1, 1]
+# forward_dict['x_c'] = [1, -1, 0]
+# forward_dict['y_c'] = [-1, 1, 0]
+# forward_dict['phi'] = np.deg2rad(0.001)
+
 print(forward_dict)
 
 # Set up the pre-calculated resolution function
@@ -68,6 +75,9 @@ model = fwd.DFXM_forward(forward_dict, load_res_fn=saved_res_fn)
 Ug = model.Ug
 print('Ug')
 print(Ug)
+
+# or you can change the parameters here
+# model.d['phi'] = np.deg2rad(0.001)
 
 lb, ub = -L/2*bmag, L/2*bmag            # in unit of m
 Ngrid = 50
@@ -93,17 +103,27 @@ figax = vis.visualize_disl_network(disl.d, rn, links, unit='um', figax=figax, sh
 plt.show()
 
 #%%-------------------------------------------------------
-# CALCULATE THE DISPLACEMENT GRADIENT
+# CALCULATE THE DFXM IMAGE
 #---------------------------------------------------------
 
 print('#'*20 + ' Calculate and visualize the image')
 saved_Fg_file = os.path.join(datapath, 'Fg_triloop_Al_001.npz')
 print('saved displacement gradient at %s'%saved_Fg_file)
+
+# Strong beam condition
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 im, ql, rulers = model.forward(Fg_func)
 
 # Visualize the simulated image
 figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
+
+# Rocking curve calculationg
+for model.d['phi'] in np.arange(-0.001, 0.00101, 0.0002):
+    Fg_func = lambda x, y, z: disl.Fg(x, y, z) #, filename=saved_Fg_file)
+    im, ql, rulers = model.forward(Fg_func)
+
+    # Visualize the simulated image
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
 
 # Visualize the reciprocal space wave vector ql
 # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
@@ -115,4 +135,5 @@ fig, ax = vis.visualize_disl_network(disl.d, rn, links, extent=extent, unit='um'
 nskip = 10
 r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
 ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+ax.axis('equal')
 plt.show()

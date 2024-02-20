@@ -550,6 +550,7 @@ class disl_network(dispgrad_structure):
             Fg_list = np.zeros((rnorm.shape[0], 3, 3))
             if not zeros:
                 Fg_list = dgh.displacement_gradient_structure_matlab(self.rn, self.links, self.d['nu'], self.a, rnorm)
+                # Fg_list = dgh.displacement_gradient_structure(self.rn, self.links, self.d['nu'], self.a, rnorm)
             if filename is not None:
                 np.savez_compressed(filename, Fg=Fg_list, r_obs=r_obs)
 
