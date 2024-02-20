@@ -28,10 +28,10 @@ import visualize_helper as vis
 # casename = 'diamond_DD0039'
 # casename = 'diamond_MD0_200x100x100'
 # casename = 'diamond_MD20000_189x100x100'
-# casename = 'diamond_MD50000_174x101x100'
+casename = 'diamond_MD50000_174x101x100'
 # casename = 'diamond_MD100000_149x100x101'
 # casename = 'diamond_MD150000_131x100x104'
-casename = 'diamond_MD200000_114x100x107'
+# casename = 'diamond_MD200000_114x100x107'
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
@@ -126,15 +126,15 @@ obs_cell = np.transpose([r_obs_cell[-1, 0, 0, :] - r_obs_cell[0, 0, 0, :],
                         ])
 print(obs_cell)
 
-fig = plt.figure(figsize=(12, 12))
-ax = fig.add_subplot(111, projection='3d')
-nskip = 1
-ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2], '.', markersize=0.01)
-ax.plot(r_obs_cell[:, 0, 0, 0], r_obs_cell[:, 0, 0, 1], r_obs_cell[:, 0, 0, 2], '-')
-ax.plot(r_obs_cell[0, :, 0, 0], r_obs_cell[0, :, 0, 1], r_obs_cell[0, :, 0, 2], '-')
-ax.plot(r_obs_cell[0, 0, :, 0], r_obs_cell[0, 0, :, 1], r_obs_cell[0, 0, :, 2], '-')
-ax.view_init(elev=0, azim=-90)
-plt.show()
+# fig = plt.figure(figsize=(12, 12))
+# ax = fig.add_subplot(111, projection='3d')
+# nskip = 1
+# ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2], '.', markersize=0.01)
+# ax.plot(r_obs_cell[:, 0, 0, 0], r_obs_cell[:, 0, 0, 1], r_obs_cell[:, 0, 0, 2], '-')
+# ax.plot(r_obs_cell[0, :, 0, 0], r_obs_cell[0, :, 0, 1], r_obs_cell[0, :, 0, 2], '-')
+# ax.plot(r_obs_cell[0, 0, :, 0], r_obs_cell[0, 0, :, 1], r_obs_cell[0, 0, :, 2], '-')
+# ax.view_init(elev=0, azim=-90)
+# plt.show()
 
 disl.load_network(config_file) # load the full network
 nsegs = disl.links.shape[0]
@@ -145,12 +145,12 @@ for ilink in range(nsegs):
     end2 = disl.rn[int(link[1])]*bmag
     s1 = np.linalg.inv(obs_cell).dot(end1)
     s2 = np.linalg.inv(obs_cell).dot(end2)
-    if np.all(np.abs(s1) < 0.5) or np.all(np.abs(s2) < 0.5):
+    if np.all(np.abs(s1) < 0.51) or np.all(np.abs(s2) < 0.51):
         select_seg_inside.append(ilink)
 print('# of segments inside the observation region:', len(select_seg_inside))
 
 # %% --------------------------------------------------------
-# save data
+# SAVE THE DISLOCATION NETWORK INSIDE THE OBSERVATION REGION
 # -----------------------------------------------------------
 
 import disl_io_helper as dio
@@ -158,8 +158,31 @@ config_ca_inside_file = os.path.join(config_dir, 'config_%s_inside.ca'%casename)
 disl.load_network(config_file, select_seg=select_seg_inside)
 disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename)
-# dio.write_xyz(r_obs_xyz_file, r_obs)
-dio.write_ca(r_obs_xyz_file, 
-             np.array([]), np.array([]),
-             obs_cell*1e10, bmag=bmag)
+disl_ca = dio.write_ca(r_obs_xyz_file, np.array([]), np.array([]), obs_cell*1e10, bmag=bmag)
+
+# %% --------------------------------------------------------
+# CALCULATE THE DFXM IMAGE
+# -----------------------------------------------------------
+
+print('#'*20 + ' Calculate and visualize the image')
+saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename)
+print('saved displacement gradient at %s'%saved_Fg_file)
+Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
+im, ql, rulers = model.forward(Fg_func, timeit=True)
+
+# Visualize the simulated image
+figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
+
+# Visualize the reciprocal space wave vector ql
+# figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+
+# Visualize the observation points
+extent = np.multiply(1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
+fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
+nskip = 10
+r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
+ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+plt.show()
+
+
 # %%
