@@ -42,8 +42,8 @@ bvec = [1, 0,-1]; nvec = [1, -1, 1]; rvec = [1, -1, 1]
 # bvec = [1, 0, 1]; nvec = [1, 1, -1]; rvec = [1, 1, -1]
 # bvec = [1, 0, 1]; nvec = [1, 1, -1]; rvec = [1,-1,-1]
 
-bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [0, 0, 1]
-# bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [1,-1, 1]
+# bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [0, 0, 1]
+bvec = [1, 1, 0]; nvec = [1,-1, 1]; rvec = [1,-1, 1]
 
 # bvec = [0, 1, 1]; nvec = [1, 1, -1]; rvec = [1, 1, -1]
 # bvec = [0, 1, 1]; nvec = [1, -1, 1]; rvec = [1, -1, 1]
@@ -268,7 +268,7 @@ if not os.path.exists(config_ca_file):
     ca_data = disl.write_network_ca(config_ca_file, bmag=bmag)
 
 r_obs_xyz_file = 'robs.xyz'
-saved_Fg_file = os.path.join('data', 'Fg_%s_DFXM_robs.npz'%casename)
+saved_Fg_file = os.path.join('data', 'Fg_%s_%s_DFXM_robs.npz'%(casename, savename))
 if not os.path.exists(r_obs_xyz_file):
     r_obs = np.load(saved_Fg_file)['r_obs']
     dio.write_xyz(r_obs_xyz_file, r_obs, scale=1e10)

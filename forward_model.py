@@ -78,7 +78,9 @@ class DFXM_forward():
                 else:
                     y_c = np.cross(z_c, x_c)
                     x_c = np.cross(y_c, z_c)
-                d['Ug'] = np.transpose([x_c, y_c, z_c])
+                # For definition of Ug = U in Eq. 5, U = [x_c^T, y_c^T, z_c^T]^T
+                # d['Ug'] = np.transpose([x_c, y_c, z_c])
+                d['Ug'] = np.array([x_c, y_c, z_c])
             else:
                 d['Ug'] = np.eye(3)
 
@@ -356,7 +358,11 @@ class DFXM_forward():
         # Determine the location of the pixel on the detector
         DET_IND_Y = np.round((YL-yl_start)/yl_step).astype(int)//Nsub # THIS ALIGNS WITH yl
         DET_IND_Z = np.round((XL0-xl_start)/xl_step).astype(int)//Nsub # THIS IS THE OTHER DETECTOR DIRECTION AND FOLLOWS xl BUT WITH MAGNIFICATION
-        RS = np.einsum('ji,...j->...i', Gamma, RL) # NB: Gamma inverse Eq. 5
+        #### This line is WRONG, the rotation is reversed ####
+        # RS = np.einsum('ji,...j->...i', Gamma, RL) # NB: Gamma inverse Eq. 5
+        #### The correct lines are ####
+        RS = np.einsum('ij,...j->...i', Gamma, RL) # Eq. 5
+        #########################################################
         RG = np.einsum('ji,...j->...i', U, RS)     # NB U inverse, Eq. 7
         Fg = Fg_fun(RG[..., 0], RG[..., 1], RG[..., 2]) # calculate the displacement gradient
 

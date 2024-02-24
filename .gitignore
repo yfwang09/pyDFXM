@@ -8,6 +8,7 @@ slurm-*.out
 *.npz
 *.png
 *.vtk
+*.ovito
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
