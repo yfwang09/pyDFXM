@@ -32,7 +32,7 @@ casename = 'diamond_MD20000_189x100x100'
 # casename = 'diamond_MD100000_149x100x101'
 # casename = 'diamond_MD150000_131x100x104'
 # casename = 'diamond_MD200000_114x100x107'
-scale_cell = 1/2                    # scale the cell side by this scale (default = 1)
+scale_cell = 1                    # scale the cell side by this scale (default = 1)
 casename_scaled = casename + '_scale%d'%(1/scale_cell)
 
 config_dir = 'configs'
@@ -46,7 +46,18 @@ print(input_dict)
 
 input_dict['nu'] = NU = 0.200       # Poisson's ratio
 input_dict['b'] = bmag = 2.522e-10  # Burger's magnitude (m)
+
+# Diffraction plane of diamond (004)
 two_theta = 48.16                   # 2theta for diamond-(004) (deg)
+hkl = [0, 0, 1]                     # hkl for diamond-(004) plane
+x_c = [1, 0, 0]                     # x_c for diamond-(004) plane
+y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
+
+# Diffraction plane of diamond (111)
+# two_theta = 20.06                   # 2theta for diamond-(111) (deg)
+# hkl = [1, 1, 1]                     # hkl for diamond-(111) plane
+# x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
+# y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
 
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
@@ -65,10 +76,9 @@ print('Number of dislocations:', len(disl_list))
 
 forward_dict = fwd.default_forward_dict()
 forward_dict['two_theta'] = two_theta
-
-forward_dict['hkl'] = [ 1, 1, 1]
-forward_dict['x_c'] = [ 1, 1,-2]
-forward_dict['y_c'] = [-1, 1, 0]
+forward_dict['hkl'] = hkl
+forward_dict['x_c'] = np.divide(x_c, 2)
+forward_dict['y_c'] = y_c
 
 print(forward_dict)
 
@@ -266,4 +276,3 @@ im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
 im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
 r_obs = r_obs_cell.reshape((-1, 3))
 dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10) # Angstrom
-# %%
