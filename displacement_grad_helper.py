@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------
 
 import numpy as np
-from numba import jit
+from numba import jit, prange
 
 def displacement_gradient_seg_optimized(NU, b, r1, r2, r, a):
     ''' Calculate the displacement gradient tensor of a dislocation segment
@@ -123,7 +123,7 @@ def displacement_gradient_seg_matlab(NU, b, r1, r2, r, a):
     dudx : numpy array
         Displacement gradient tensor
     ''' 
-    dudx = np.zeros((3, 3))
+    # dudx = np.zeros((3, 3))
 
     t = r2 - r1
     t = t/np.linalg.norm(t)
@@ -200,6 +200,57 @@ def displacement_gradient_seg_matlab(NU, b, r1, r2, r, a):
 
     dudx = -1/8/np.pi*(U1 + U2 + 1/(1 - NU) * U3)
     return dudx
+
+@jit(nopython=True, cache=True, parallel=True)
+def displacement_gradient_structure_parallel(rn, links, NU, a, r, test=False):
+    '''Computes the non-singular displacement gradient produced by the dislocation structure.
+
+    Parameters
+    ----------
+    rn : numpy array
+        Position of the nodes
+    links : numpy array
+        Connectivity of the nodes
+    NU : float
+        Poisson's ratio
+    a : float
+        Non-singular radius
+    r : numpy array
+        Observation point
+    Returns
+    -------
+    dudx : numpy array
+        Displacement gradient tensor
+    '''
+    
+    dudx = np.zeros((r.shape[0], 3, 3))
+    if not test:
+        # it = np.nditer(r, flags=['multi_index'])
+        
+        # for i in prange(links.shape[0]):
+        #     n1 = int(links[i, 0])
+        #     n2 = int(links[i, 1])
+        #     r1 = rn[n1, :]
+        #     r2 = rn[n2, :]
+        #     b = links[i, 2:5]
+        #     dudxi = np.zeros_like(dudx)
+        #     for j in range(r.shape[0]):
+        #         dudxi[j, :] += displacement_gradient_seg_matlab(NU, b, r1, r2, r[j, :], a)
+        #     dudx += dudxi
+
+        for j in prange(r.shape[0]):
+            dudxj = np.zeros((3, 3))
+            for i in prange(links.shape[0]):
+                n1 = int(links[i, 0])
+                n2 = int(links[i, 1])
+                r1 = rn[n1, :]
+                r2 = rn[n2, :]
+                b = links[i, 2:5]
+                dudxj += displacement_gradient_seg_matlab(NU, b, r1, r2, r[j, :], a)
+            dudx[j, :] = dudxj
+    
+    return dudx
+
 
 @jit(nopython=True, cache=True)
 def displacement_gradient_structure_matlab(rn, links, NU, a, r, test=False):

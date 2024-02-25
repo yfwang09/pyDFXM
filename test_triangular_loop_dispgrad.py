@@ -27,7 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dispgrad_func as dgf
 import time
-from displacement_grad_helper import displacement_structure, displacement_gradient_structure_matlab
+from displacement_grad_helper import displacement_structure, displacement_gradient_structure_matlab, displacement_gradient_structure_parallel
 
 #---------------------------------------------------------
 # INITIALIZATION
@@ -88,6 +88,7 @@ r[:, 2] = np.mean(rn[:, 2])
 ax.plot(r[:, 0], r[:, 1], r[:, 2], 'C0o-', label='field points')
 plt.legend()
 
+#%%
 # Evaluate the displacement gradient field using the analytical expression (Bertin and Cai, CMS, 2018)
 # The length is normalized to the unit of Burger's vector (bmag)
 tic = time.time()
@@ -103,6 +104,19 @@ dudx_ref = displacement_gradient_structure_matlab(rn, links, NU, a, r)
 toc = time.time()
 print('Time to evaluate displacement gradient field (jit): ', toc-tic)
 print('dudx error: ', np.linalg.norm(dudx - dudx_ref))
+
+#%%
+# Parallelizating using numba jit parallel
+tic = time.time()
+dudx_ref = displacement_gradient_structure_parallel(rn, links, NU, a, r)
+toc = time.time()
+print('Time to evaluate displacement gradient field (jit-parallel reference): ', toc-tic)
+tic = time.time()
+dudx_ref = displacement_gradient_structure_parallel(rn, links, NU, a, r)
+toc = time.time()
+print('Time to evaluate displacement gradient field (jit-parallel): ', toc-tic)
+print('dudx error: ', np.linalg.norm(dudx - dudx_ref))
+displacement_gradient_structure_parallel.parallel_diagnostics(level=4)
 
 #%%-------------------------------------------------------
 # Evaluate displacement gradient by numerically differentiating the displacement field
