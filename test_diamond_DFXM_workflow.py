@@ -27,16 +27,18 @@ import visualize_helper as vis
 # casename = 'diamond_10um_screw_pbc'
 # casename = 'diamond_DD0039'
 # casename = 'diamond_MD0_200x100x100'
-# casename = 'diamond_MD20000_189x100x100'
-casename = 'diamond_MD50000_174x101x100'
+casename = 'diamond_MD20000_189x100x100'
+# casename = 'diamond_MD50000_174x101x100'
 # casename = 'diamond_MD100000_149x100x101'
 # casename = 'diamond_MD150000_131x100x104'
 # casename = 'diamond_MD200000_114x100x107'
+scale_cell = 1/2                    # scale the cell side by this scale (default = 1)
+casename_scaled = casename + '_scale%d'%(1/scale_cell)
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
-config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename)
-config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename)
+config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename_scaled)
+config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename_scaled)
 
 # Elasticity parameters (Diamond)
 input_dict = dgf.default_dispgrad_dict('disl_network')
@@ -48,7 +50,7 @@ two_theta = 48.16                   # 2theta for diamond-(004) (deg)
 
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
-disl.load_network(config_file)
+disl.load_network(config_file, scale_cell=scale_cell)
 
 # Write the dislocation network into a CA file
 ca_data = disl.write_network_ca(config_ca_file, bmag=bmag)
@@ -63,6 +65,11 @@ print('Number of dislocations:', len(disl_list))
 
 forward_dict = fwd.default_forward_dict()
 forward_dict['two_theta'] = two_theta
+
+forward_dict['hkl'] = [ 1, 1, 1]
+forward_dict['x_c'] = [ 1, 1,-2]
+forward_dict['y_c'] = [-1, 1, 0]
+
 print(forward_dict)
 
 # Set up the pre-calculated resolution function
@@ -74,15 +81,15 @@ print('saved resolution function at %s'%saved_res_fn)
 # Set up the pre-calculated displacement gradient
 model = fwd.DFXM_forward(forward_dict, load_res_fn=saved_res_fn)
 Ug = model.Ug
-print('Ug')
+print('U matrix in Eq.(7): rs = U.rg (Poulsen et al., 2021)')
 print(Ug)
 
 #%%-------------------------------------------------------
 # CALCULATE THE OBSERVATION POINTS OF THE DFXM
 #---------------------------------------------------------
 
-disl.load_network(config_file, select_seg=[]) # load empty network to calculate the observation points
-saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM_robs.npz'%casename)
+disl.load_network(config_file, select_seg=[], scale_cell=scale_cell) # load empty network to calculate the observation points
+saved_Fg_file = os.path.join(datapath, 'Fg_%s_hkl%d%d%d_DFXM_robs.npz'%((casename, ) + tuple(forward_dict['hkl'])))
 print('saved observation points at %s'%saved_Fg_file)
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 if not os.path.exists(saved_Fg_file):
@@ -104,6 +111,7 @@ fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent,
 nskip = 10
 r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
 ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+ax.view_init(azim=90, elev=0)
 plt.show()
 
 # %%-------------------------------------------------------
@@ -145,7 +153,7 @@ print(obs_cell)
 # ax.view_init(elev=0, azim=-90)
 # plt.show()
 
-disl.load_network(config_file) # load the full network
+disl.load_network(config_file, scale_cell=scale_cell) # load the full network
 nsegs = disl.links.shape[0]
 select_seg_inside = []
 for ilink in range(nsegs):
@@ -163,8 +171,8 @@ print('# of segments inside the observation region:', len(select_seg_inside))
 # -----------------------------------------------------------
 
 import disl_io_helper as dio
-config_ca_inside_file = os.path.join(config_dir, 'config_%s_inside.ca'%casename)
-disl.load_network(config_file, select_seg=select_seg_inside)
+config_ca_inside_file = os.path.join(config_dir, 'config_%s_inside.ca'%casename_scaled)
+disl.load_network(config_file, select_seg=select_seg_inside, scale_cell=scale_cell)
 ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 
 # %% --------------------------------------------------------
@@ -172,7 +180,7 @@ ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 # -----------------------------------------------------------
 
 print('#'*20 + ' Calculate and visualize the image')
-saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename)
+saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled)
 print('saved displacement gradient at %s'%saved_Fg_file)
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 im, ql, rulers = model.forward(Fg_func, timeit=True)
@@ -193,7 +201,7 @@ plt.show()
 
 # %%
 
-r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename)
+r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename_scaled)
 im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
 im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
 r_obs = r_obs_cell.reshape((-1, 3))
@@ -204,7 +212,7 @@ dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
 print('#'*20 + ' Calculate and visualize the image')
 cell_scale = 1/4
 disl.load_network(config_file, scale_cell=cell_scale) # load the full network
-print('load full network with scale 1/%d'%cell_scale)
+print('load full network with scale 1/%d'%(1/cell_scale))
 
 output_path = os.path.join(datapath, 'output_%s_scale%d'%(casename, 1/cell_scale))
 import glob

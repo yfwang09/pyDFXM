@@ -5,6 +5,7 @@
 #SBATCH -p mc
 
 # module load viz devel python/3.9.0 py-numpy/1.24.2_py39 py-scipy/1.10.1_py39 py-matplotlib/3.7.1_py39 openmpi py-mpi4py
+ml system viz devel git python/3.9.0 py-numpy/1.20.3_py39 py-scipy/1.6.3_py39 py-matplotlib/3.4.2_py39 py-numba/0.54.1_py39 openmpi py-mpi4py
 
 # mpirun -np 300 python3 test_diamond_DFXM_mpi.py
 
@@ -13,6 +14,7 @@
 # mpirun -np 300 python3 test_diamond_DFXM_mpi.py diamond_MD0_200x100x100
 # wait
 
+rm -rfv data/Fg_diamond_MD20000_189x100x100_seg
 mpirun -np 300 python3 test_diamond_DFXM_mpi.py diamond_MD20000_189x100x100
 wait
 
