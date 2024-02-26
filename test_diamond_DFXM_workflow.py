@@ -59,6 +59,8 @@ y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
 # x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
 # y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
 
+casename_scaled_hkl = casename_scaled + '_hkl%d%d%d'%tuple(hkl)
+
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
 disl.load_network(config_file, scale_cell=scale_cell)
@@ -77,7 +79,7 @@ print('Number of dislocations:', len(disl_list))
 forward_dict = fwd.default_forward_dict()
 forward_dict['two_theta'] = two_theta
 forward_dict['hkl'] = hkl
-forward_dict['x_c'] = np.divide(x_c, 2)
+forward_dict['x_c'] = x_c
 forward_dict['y_c'] = y_c
 
 print(forward_dict)
@@ -99,7 +101,7 @@ print(Ug)
 #---------------------------------------------------------
 
 disl.load_network(config_file, select_seg=[], scale_cell=scale_cell) # load empty network to calculate the observation points
-saved_Fg_file = os.path.join(datapath, 'Fg_%s_hkl%d%d%d_DFXM_robs.npz'%((casename, ) + tuple(forward_dict['hkl'])))
+saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM_robs.npz'%casename_scaled_hkl)
 print('saved observation points at %s'%saved_Fg_file)
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 if not os.path.exists(saved_Fg_file):
@@ -181,7 +183,7 @@ print('# of segments inside the observation region:', len(select_seg_inside))
 # -----------------------------------------------------------
 
 import disl_io_helper as dio
-config_ca_inside_file = os.path.join(config_dir, 'config_%s_inside.ca'%casename_scaled)
+config_ca_inside_file = os.path.join(config_dir, 'config_%s_inside.ca'%casename_scaled_hkl)
 disl.load_network(config_file, select_seg=select_seg_inside, scale_cell=scale_cell)
 ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 
@@ -190,7 +192,7 @@ ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 # -----------------------------------------------------------
 
 print('#'*20 + ' Calculate and visualize the image')
-saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled)
+saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
 print('saved displacement gradient at %s'%saved_Fg_file)
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 im, ql, rulers = model.forward(Fg_func, timeit=True)
@@ -211,7 +213,7 @@ plt.show()
 
 # %%
 
-r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename_scaled)
+r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename_scaled_hkl)
 im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
 im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
 r_obs = r_obs_cell.reshape((-1, 3))
@@ -219,60 +221,60 @@ dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
 
 # %%
 
-print('#'*20 + ' Calculate and visualize the image')
-cell_scale = 1/4
-disl.load_network(config_file, scale_cell=cell_scale) # load the full network
-print('load full network with scale 1/%d'%(1/cell_scale))
+# print('#'*20 + ' Calculate and visualize the image')
+# cell_scale = 1/4
+# disl.load_network(config_file, scale_cell=cell_scale) # load the full network
+# print('load full network with scale 1/%d'%(1/cell_scale))
 
-output_path = os.path.join(datapath, 'output_%s_scale%d'%(casename, 1/cell_scale))
-import glob
-Fg_files = glob.glob(os.path.join(output_path, 'Fg_*.npz'))
+# output_path = os.path.join(datapath, 'output_%s_scale%d'%(casename, 1/cell_scale))
+# import glob
+# Fg_files = glob.glob(os.path.join(output_path, 'Fg_*.npz'))
 
-saved_Fg_file = os.path.join(output_path, 'Fg_%s_DFXM.npz'%casename)
-if not os.path.exists(saved_Fg_file):
-    Fg = None
-    for Fg_file in Fg_files:
-        print('saved displacement gradient at %s'%saved_Fg_file)
-        if Fg is None:
-            Fg = np.load(Fg_file)['Fg']
-            r_obs = np.load(Fg_file)['r_obs']
-        else:
-            try:
-                Fg += np.load(Fg_file)['Fg']
-            except:
-                Fg += 0
+# saved_Fg_file = os.path.join(output_path, 'Fg_%s_DFXM.npz'%casename)
+# if not os.path.exists(saved_Fg_file):
+#     Fg = None
+#     for Fg_file in Fg_files:
+#         print('saved displacement gradient at %s'%saved_Fg_file)
+#         if Fg is None:
+#             Fg = np.load(Fg_file)['Fg']
+#             r_obs = np.load(Fg_file)['r_obs']
+#         else:
+#             try:
+#                 Fg += np.load(Fg_file)['Fg']
+#             except:
+#                 Fg += 0
 
-    np.savez_compressed(saved_Fg_file, Fg=Fg, r_obs=r_obs)
-else:
-    Fg = np.load(saved_Fg_file)['Fg']
-    r_obs = np.load(saved_Fg_file)['r_obs']
+#     np.savez_compressed(saved_Fg_file, Fg=Fg, r_obs=r_obs)
+# else:
+#     Fg = np.load(saved_Fg_file)['Fg']
+#     r_obs = np.load(saved_Fg_file)['r_obs']
 
-print('saved displacement gradient at %s'%saved_Fg_file)
-Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
-im, ql, rulers = model.forward(Fg_func, timeit=True)
+# print('saved displacement gradient at %s'%saved_Fg_file)
+# Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
+# im, ql, rulers = model.forward(Fg_func, timeit=True)
 
-# Visualize the simulated image
-figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
+# # Visualize the simulated image
+# figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
 
-# Visualize the reciprocal space wave vector ql
-# figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
+# # Visualize the reciprocal space wave vector ql
+# # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
 
-# %%
-# Visualize the observation points
+# # %%
+# # Visualize the observation points
 
-Lx, Ly, Lz = tuple(np.diag(disl.cell))
-lbx, ubx = -Lx/2*bmag, Lx/2*bmag         # in unit of m
-lby, uby = -Ly/2*bmag, Ly/2*bmag         # in unit of m
-lbz, ubz = -Lz/2*bmag, Lz/2*bmag         # in unit of m
-extent = np.multiply(1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
-fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
-nskip = 10
-r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
-ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
-plt.show()
-# %%
-r_obs_xyz_file = os.path.join(output_path, 'r_obs_%s.xyz'%casename)
-im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
-im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
-r_obs = r_obs_cell.reshape((-1, 3))
-dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10) # Angstrom
+# Lx, Ly, Lz = tuple(np.diag(disl.cell))
+# lbx, ubx = -Lx/2*bmag, Lx/2*bmag         # in unit of m
+# lby, uby = -Ly/2*bmag, Ly/2*bmag         # in unit of m
+# lbz, ubz = -Lz/2*bmag, Lz/2*bmag         # in unit of m
+# extent = np.multiply(1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
+# fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
+# nskip = 10
+# r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
+# ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
+# plt.show()
+# # %%
+# r_obs_xyz_file = os.path.join(output_path, 'r_obs_%s.xyz'%casename)
+# im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
+# im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
+# r_obs = r_obs_cell.reshape((-1, 3))
+# dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10) # Angstrom
