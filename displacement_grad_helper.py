@@ -202,8 +202,8 @@ def displacement_gradient_seg_matlab(NU, b, r1, r2, r, a):
     return dudx
 
 @jit(nopython=True, cache=True, parallel=True)
-def displacement_gradient_structure_parallel(rn, links, NU, a, r, test=False):
-    '''Computes the non-singular displacement gradient produced by the dislocation structure.
+def displacement_gradient_structure_jit_parallel(rn, links, NU, a, r, test=False):
+    '''Computes the non-singular displacement gradient produced by the dislocation structure using jit parallel.
 
     Parameters
     ----------
@@ -250,7 +250,6 @@ def displacement_gradient_structure_parallel(rn, links, NU, a, r, test=False):
             dudx[j, :] = dudxj
     
     return dudx
-
 
 @jit(nopython=True, cache=True)
 def displacement_gradient_structure_matlab(rn, links, NU, a, r, test=False):
