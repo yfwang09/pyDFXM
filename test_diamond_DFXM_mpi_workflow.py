@@ -192,12 +192,14 @@ if rank == 0:
     links = disl.links
     NU = disl.d['nu']
     a = disl.a
+    saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
 else:
     rnorm = None
     rn = None
     links = None
     NU = None
     a = None
+    saved_Fg_file = None
 
 verbose = True
 rnorm = comm.bcast(rnorm, root=0)
@@ -205,39 +207,43 @@ rn = comm.bcast(rn, root=0)
 links = comm.bcast(links, root=0)
 NU = comm.bcast(NU, root=0)
 a = comm.bcast(a, root=0)
+saved_Fg_file = comm.bcast(saved_Fg_file, root=0)
 
-tic_all = time.time()
-
-dudx_worker = np.zeros((rnorm.shape[0], 3, 3), dtype=float)
-for i in range(rank, links.shape[0], size):
-    if verbose:
-        print('worker %d: calculating link %d'%(rank, i))
-    n1 = int(links[i, 0])
-    n2 = int(links[i, 1])
-    r1 = rn[n1, :]
-    r2 = rn[n2, :]
-    b = links[i, 2:5]
-    tic = time.time()
-    dudx_worker += dgh.displacement_gradient_seg_optimized(NU, b, r1, r2, rnorm, a)
-    toc = time.time()
-    if verbose:
-        print('worker %d: link %d is calculated in %.2f seconds'%(rank, i, toc-tic))
-
-if rank == 0:
-    dudx_receive = np.empty((size, rnorm.shape[0], 3, 3), dtype=float)
+if os.path.exists(saved_Fg_file):
+    print('The displacement gradient is already calculated and saved at %s'%saved_Fg_file)
 else:
-    dudx_receive = None
+    tic_all = time.time()
 
-comm.Gather(dudx_worker, dudx_receive, root=0)
+    dudx_worker = np.zeros((rnorm.shape[0], 3, 3), dtype=float)
+    for i in range(rank, links.shape[0], size):
+        if verbose:
+            print('worker %d: calculating link %d'%(rank, i))
+        n1 = int(links[i, 0])
+        n2 = int(links[i, 1])
+        r1 = rn[n1, :]
+        r2 = rn[n2, :]
+        b = links[i, 2:5]
+        tic = time.time()
+        dudx_worker += dgh.displacement_gradient_seg_optimized(NU, b, r1, r2, rnorm, a)
+        toc = time.time()
+        if verbose:
+            print('worker %d: link %d is calculated in %.2f seconds'%(rank, i, toc-tic))
 
-if rank == 0:
-    print('#'*20 + ' Calculate and visualize the image')
-    saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
-    print('saved displacement gradient at %s'%saved_Fg_file)
-    Fg_list = dudx_receive.sum(axis=0)
-    toc_all = time.time()
-    print('The displacement gradient is calculated in %.2f seconds'%(toc_all-tic_all))
-    np.savez_compressed(saved_Fg_file, Fg=Fg_list, r_obs=r_obs)
+    if rank == 0:
+        dudx_receive = np.empty((size, rnorm.shape[0], 3, 3), dtype=float)
+    else:
+        dudx_receive = None
+
+    comm.Gather(dudx_worker, dudx_receive, root=0)
+
+    if rank == 0:
+        print('#'*20 + ' Calculate and visualize the image')
+        saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
+        print('saved displacement gradient at %s'%saved_Fg_file)
+        Fg_list = dudx_receive.sum(axis=0)
+        toc_all = time.time()
+        print('The displacement gradient is calculated in %.2f seconds'%(toc_all-tic_all))
+        np.savez_compressed(saved_Fg_file, Fg=Fg_list, r_obs=r_obs)
 
 # %% --------------------------------------------------------
 # CALCULATE THE DFXM IMAGE
