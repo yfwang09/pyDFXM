@@ -13,7 +13,20 @@ import forward_model as fwd
 import visualize_helper as vis
 import displacement_grad_helper as dgh
 
+import argparse
 from mpi4py import MPI
+
+parser = argparse.ArgumentParser(description='DFXM forward calculation for diamond DDD configurations')
+parser.add_argument('--casename', '-n', type=str, default='diamond_MD20000_189x100x100', help='The name of the DDD configuration')
+parser.add_argument('--scale_cell', '-sc', type=float, default=1, help='Scale the cell side by this scale (default = 1)')
+parser.add_argument('--poisson', '-nu', type=float, default=0.200, help="Poisson's ratio")
+parser.add_argument('--bmag', '-b', type=float, default=2.522e-10, help="Burger's magnitude (m)")
+parser.add_argument('--diffraction_plane', '-dp', type=str, default='004', help='Diffraction plane of diamond (004 or 111)')
+parser.add_argument('--rocking', '-phi', type=float, default=0, help='Rocking angle (deg) for the DFXM')
+parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling angle (deg) for the DFXM')
+parser.add_argument('--shift', '-sh', type=float, default=[-5, 0, 0], nargs='+', help='Shift of the observation points (um)')
+parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff distance for the observation region (in scaled coordinates)')
+args = parser.parse_args()
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
@@ -36,13 +49,17 @@ if rank == 0:
     # casename = 'diamond_10um_screw_pbc'
     # casename = 'diamond_DD0039'
     # casename = 'diamond_MD0_200x100x100'
-    casename = 'diamond_MD20000_189x100x100'
+    # casename = 'diamond_MD20000_189x100x100'
     # casename = 'diamond_MD50000_174x101x100'
     # casename = 'diamond_MD100000_149x100x101'
     # casename = 'diamond_MD150000_131x100x104'
     # casename = 'diamond_MD200000_114x100x107'
-    scale_cell = 1                    # scale the cell side by this scale (default = 1)
-    casename_scaled = casename + '_scale%d'%(1/scale_cell)
+    casename   = args.casename
+    scale_cell = args.scale_cell
+    phi, chi = args.rocking, args.rolling
+    shift = args.shift
+    cutoff = args.cutoff
+    casename_scaled = casename + '_scale%d'%(1/scale_cell) + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift)
 
     config_dir = 'configs'
     config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
@@ -53,20 +70,24 @@ if rank == 0:
     input_dict = dgf.default_dispgrad_dict('disl_network')
     print(input_dict)
 
-    input_dict['nu'] = NU = 0.200       # Poisson's ratio
-    input_dict['b'] = bmag = 2.522e-10  # Burger's magnitude (m)
+    input_dict['nu'] = NU = args.poisson  # Poisson's ratio
+    input_dict['b'] = bmag = args.bmag    # Burger's magnitude (m)
 
-    # Diffraction plane of diamond (004)
-    two_theta = 48.16                   # 2theta for diamond-(004) (deg)
-    hkl = [0, 0, 1]                     # hkl for diamond-(004) plane
-    x_c = [1, 0, 0]                     # x_c for diamond-(004) plane
-    y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
-
-    # Diffraction plane of diamond (111)
-    two_theta = 20.06                   # 2theta for diamond-(111) (deg)
-    hkl = [1, 1, 1]                     # hkl for diamond-(111) plane
-    x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
-    y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
+    diffraction_plane = args.diffraction_plane
+    if diffraction_plane == '004':
+        # Diffraction plane of diamond (004)
+        two_theta = 48.16                   # 2theta for diamond-(004) (deg)
+        hkl = [0, 0, 1]                     # hkl for diamond-(004) plane
+        x_c = [1, 0, 0]                     # x_c for diamond-(004) plane
+        y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
+    elif diffraction_plane == '111':
+        # Diffraction plane of diamond (111)
+        two_theta = 20.06                   # 2theta for diamond-(111) (deg)
+        hkl = [1, 1, 1]                     # hkl for diamond-(111) plane
+        x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
+        y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
+    else:
+        raise ValueError('Unknown diffraction plane: %s'%diffraction_plane)
 
     casename_scaled_hkl = casename_scaled + '_hkl%d%d%d'%tuple(hkl)
 
@@ -117,6 +138,9 @@ if rank == 0:
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
     if not os.path.exists(saved_Fg_file):
         im, ql, rulers = model.forward(Fg_func, timeit=True)
+        Fg = np.load(saved_Fg_file)['Fg']*0
+        r_obs = np.load(saved_Fg_file)['r_obs'] + np.multiply(shift, 1e-6) # in the unit of m
+        np.savez_compressed(saved_Fg_file, Fg=Fg, r_obs=r_obs)
 
     # Visualize the simulated image
     # figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
@@ -165,7 +189,7 @@ if rank == 0:
         end2 = disl.rn[int(link[1])]*bmag
         s1 = np.linalg.inv(obs_cell).dot(end1)
         s2 = np.linalg.inv(obs_cell).dot(end2)
-        if np.all(np.abs(s1) < 0.51) or np.all(np.abs(s2) < 0.51):
+        if np.all(np.abs(s1) < cutoff) or np.all(np.abs(s2) < cutoff):
             select_seg_inside.append(ilink)
     print('# of segments inside the observation region:', len(select_seg_inside))
 

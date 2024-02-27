@@ -158,8 +158,8 @@ class DFXM_forward():
 
             # Compute q_{rock,roll,par},
             # phi&chi shifts are for testing only - NEVER change them when calculating res_fn!
-            qrock = -zeta_v/2 - delta_2theta/2 + d['phi']
-            qroll = -zeta_h/(2*np.sin(d['theta'])) - xi/(2*np.sin(d['theta'])) + d['chi']
+            qrock = -zeta_v/2 - delta_2theta/2 # + d['phi']
+            qroll = -zeta_h/(2*np.sin(d['theta'])) - xi/(2*np.sin(d['theta'])) # + d['chi']
             qpar = eps + (1/np.tan(d['theta']))*(-zeta_v/2 + delta_2theta/2)
 
             # Convert from crystal to imaging system
