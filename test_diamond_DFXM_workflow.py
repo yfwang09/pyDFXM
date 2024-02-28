@@ -212,8 +212,6 @@ if not os.path.exists(config_ca_inside_file):
 print('#'*20 + ' Calculate and visualize the image')
 saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
 print('saved displacement gradient at %s'%saved_Fg_file)
-Fg = np.load(saved_Fg_file)['Fg']
-print(Fg.max(), Fg.min())
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 im, ql, rulers = model.forward(Fg_func, timeit=True)
 
@@ -232,6 +230,7 @@ ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markers
 plt.show()
 
 # %%
+# save r_obs into xyz file
 
 r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename_scaled_hkl)
 im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
@@ -240,4 +239,31 @@ r_obs = r_obs_cell.reshape((-1, 3))
 if not os.path.exists(r_obs_xyz_file):
     dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
 
+# %%
+# Calculating the rocking curve
+
+phi_values = np.arange(-0.001, 0.00101, 0.0001).round(4)
+chi = 0
+Imin = np.empty_like(phi_values)
+Imax = np.empty_like(phi_values)
+Iavg = np.empty_like(phi_values)
+
+for iphi, phi in enumerate(phi_values):
+    casename_scaled_phi_chi_hkl = casename_scaled + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
+    print('#'*20 + ' Calculate and visualize the image')
+    saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_phi_chi_hkl)
+    print('saved displacement gradient at %s'%saved_Fg_file)
+
+    model.d['phi'] = phi
+    model.d['chi'] = chi
+    Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
+    im, ql, rulers = model.forward(Fg_func, timeit=True)
+    
+    Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
+
+fig, ax = plt.subplots()
+ax.plot(phi_values, Imax)
+ax.plot(phi_values, Imin)
+ax.plot(phi_values, Iavg)
+plt.show()
 # %%
