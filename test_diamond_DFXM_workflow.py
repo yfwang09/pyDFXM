@@ -12,6 +12,21 @@ import dispgrad_func as dgf
 import forward_model as fwd
 import visualize_helper as vis
 
+# import argparse
+# from mpi4py import MPI
+
+# parser = argparse.ArgumentParser(description='DFXM forward calculation for diamond DDD configurations')
+# parser.add_argument('--casename', '-n', type=str, default='diamond_MD20000_189x100x100', help='The name of the DDD configuration')
+# parser.add_argument('--scale_cell', '-sc', type=float, default=1, help='Scale the cell side by this scale (default = 1)')
+# parser.add_argument('--poisson', '-nu', type=float, default=0.200, help="Poisson's ratio")
+# parser.add_argument('--bmag', '-b', type=float, default=2.522e-10, help="Burger's magnitude (m)")
+# parser.add_argument('--diffraction_plane', '-dp', type=str, default='004', help='Diffraction plane of diamond (004 or 111)')
+# parser.add_argument('--rocking', '-phi', type=float, default=0, help='Rocking angle (deg) for the DFXM')
+# parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling angle (deg) for the DFXM')
+# parser.add_argument('--shift', '-sh', type=float, default=[-5, 0, 0], nargs='+', help='Shift of the observation points (um)')
+# parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff distance for the observation region (in scaled coordinates)')
+# args = parser.parse_args()
+
 #%%-------------------------------------------------------
 # INITIALIZATION
 #---------------------------------------------------------
@@ -26,14 +41,15 @@ import visualize_helper as vis
 # casename = 'diamond_10um_screw_helix3_pbc'
 # casename = 'diamond_10um_screw_pbc'
 # casename = 'diamond_DD0039'
-# casename = 'diamond_MD0_200x100x100'
-casename = 'diamond_MD20000_189x100x100'
+casename = 'diamond_MD0_200x100x100'
+# casename = 'diamond_MD20000_189x100x100'
 # casename = 'diamond_MD50000_174x101x100'
 # casename = 'diamond_MD100000_149x100x101'
 # casename = 'diamond_MD150000_131x100x104'
 # casename = 'diamond_MD200000_114x100x107'
 scale_cell = 1                    # scale the cell side by this scale (default = 1)
 casename_scaled = casename + '_scale%d'%(1/scale_cell)
+cutoff = 0.51                       # Cutoff distance for the observation region (in scaled coordinates)
 
 config_dir = 'configs'
 config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
@@ -59,7 +75,12 @@ y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
 # x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
 # y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
 
-casename_scaled_hkl = casename_scaled + '_hkl%d%d%d'%tuple(hkl)
+phi = chi = 0
+chi = 0
+phi = -0.0006
+shift = [-5, 0, 0]
+
+casename_scaled_hkl = casename_scaled + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
 
 # Load the dislocation network
 disl = dgf.disl_network(input_dict)
@@ -81,6 +102,8 @@ forward_dict['two_theta'] = two_theta
 forward_dict['hkl'] = hkl
 forward_dict['x_c'] = x_c
 forward_dict['y_c'] = y_c
+forward_dict['phi'] = phi
+forward_dict['chi'] = chi
 
 print(forward_dict)
 
@@ -106,6 +129,9 @@ print('saved observation points at %s'%saved_Fg_file)
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 if not os.path.exists(saved_Fg_file):
     im, ql, rulers = model.forward(Fg_func, timeit=True)
+    Fg = np.load(saved_Fg_file)['Fg']*0
+    r_obs = np.load(saved_Fg_file)['r_obs'] + np.multiply(shift, 1e-6) # in the unit of m
+    np.savez_compressed(saved_Fg_file, Fg=Fg, r_obs=r_obs)
 
 # Visualize the simulated image
 # figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
@@ -155,23 +181,14 @@ print(obs_cell)
 # ax.plot(r_obs_cell[0, 0, :, 0], r_obs_cell[0, 0, :, 1], r_obs_cell[0, 0, :, 2], '-')
 # ax.view_init(elev=0, azim=-90)
 # plt.show()
-# fig = plt.figure(figsize=(12, 12))
-# ax = fig.add_subplot(111, projection='3d')
-# nskip = 1
-# ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2], '.', markersize=0.01)
-# ax.plot(r_obs_cell[:, 0, 0, 0], r_obs_cell[:, 0, 0, 1], r_obs_cell[:, 0, 0, 2], '-')
-# ax.plot(r_obs_cell[0, :, 0, 0], r_obs_cell[0, :, 0, 1], r_obs_cell[0, :, 0, 2], '-')
-# ax.plot(r_obs_cell[0, 0, :, 0], r_obs_cell[0, 0, :, 1], r_obs_cell[0, 0, :, 2], '-')
-# ax.view_init(elev=0, azim=-90)
-# plt.show()
 
 disl.load_network(config_file, scale_cell=scale_cell) # load the full network
 nsegs = disl.links.shape[0]
 select_seg_inside = []
 for ilink in range(nsegs):
     link = disl.links[ilink]
-    end1 = disl.rn[int(link[0])]*bmag
-    end2 = disl.rn[int(link[1])]*bmag
+    end1 = disl.rn[int(link[0])]*bmag - np.multiply(shift, 1e-6)
+    end2 = disl.rn[int(link[1])]*bmag - np.multiply(shift, 1e-6)
     s1 = np.linalg.inv(obs_cell).dot(end1)
     s2 = np.linalg.inv(obs_cell).dot(end2)
     if np.all(np.abs(s1) < 0.51) or np.all(np.abs(s2) < 0.51):
@@ -185,7 +202,8 @@ print('# of segments inside the observation region:', len(select_seg_inside))
 import disl_io_helper as dio
 config_ca_inside_file = os.path.join(config_dir, 'config_%s_inside.ca'%casename_scaled_hkl)
 disl.load_network(config_file, select_seg=select_seg_inside, scale_cell=scale_cell)
-ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
+if not os.path.exists(config_ca_inside_file):
+    ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 
 # %% --------------------------------------------------------
 # CALCULATE THE DFXM IMAGE
@@ -194,6 +212,8 @@ ca_data = disl.write_network_ca(config_ca_inside_file, bmag=bmag)
 print('#'*20 + ' Calculate and visualize the image')
 saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
 print('saved displacement gradient at %s'%saved_Fg_file)
+Fg = np.load(saved_Fg_file)['Fg']
+print(Fg.max(), Fg.min())
 Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
 im, ql, rulers = model.forward(Fg_func, timeit=True)
 
@@ -217,64 +237,7 @@ r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename_scaled_hkl)
 im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
 im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
 r_obs = r_obs_cell.reshape((-1, 3))
-dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
+if not os.path.exists(r_obs_xyz_file):
+    dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
 
 # %%
-
-# print('#'*20 + ' Calculate and visualize the image')
-# cell_scale = 1/4
-# disl.load_network(config_file, scale_cell=cell_scale) # load the full network
-# print('load full network with scale 1/%d'%(1/cell_scale))
-
-# output_path = os.path.join(datapath, 'output_%s_scale%d'%(casename, 1/cell_scale))
-# import glob
-# Fg_files = glob.glob(os.path.join(output_path, 'Fg_*.npz'))
-
-# saved_Fg_file = os.path.join(output_path, 'Fg_%s_DFXM.npz'%casename)
-# if not os.path.exists(saved_Fg_file):
-#     Fg = None
-#     for Fg_file in Fg_files:
-#         print('saved displacement gradient at %s'%saved_Fg_file)
-#         if Fg is None:
-#             Fg = np.load(Fg_file)['Fg']
-#             r_obs = np.load(Fg_file)['r_obs']
-#         else:
-#             try:
-#                 Fg += np.load(Fg_file)['Fg']
-#             except:
-#                 Fg += 0
-
-#     np.savez_compressed(saved_Fg_file, Fg=Fg, r_obs=r_obs)
-# else:
-#     Fg = np.load(saved_Fg_file)['Fg']
-#     r_obs = np.load(saved_Fg_file)['r_obs']
-
-# print('saved displacement gradient at %s'%saved_Fg_file)
-# Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
-# im, ql, rulers = model.forward(Fg_func, timeit=True)
-
-# # Visualize the simulated image
-# figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
-
-# # Visualize the reciprocal space wave vector ql
-# # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])
-
-# # %%
-# # Visualize the observation points
-
-# Lx, Ly, Lz = tuple(np.diag(disl.cell))
-# lbx, ubx = -Lx/2*bmag, Lx/2*bmag         # in unit of m
-# lby, uby = -Ly/2*bmag, Ly/2*bmag         # in unit of m
-# lbz, ubz = -Lz/2*bmag, Lz/2*bmag         # in unit of m
-# extent = np.multiply(1e6, [lbx, ubx, lby, uby, lbz, ubz]) # in the unit of um
-# fig, ax = vis.visualize_disl_network(disl.d, disl.rn, disl.links, extent=extent, unit='um', show=False)
-# nskip = 10
-# r_obs = np.load(saved_Fg_file)['r_obs']*1e6 # in the unit of um
-# ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
-# plt.show()
-# # %%
-# r_obs_xyz_file = os.path.join(output_path, 'r_obs_%s.xyz'%casename)
-# im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
-# im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
-# r_obs = r_obs_cell.reshape((-1, 3))
-# dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10) # Angstrom
