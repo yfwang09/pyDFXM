@@ -21,7 +21,7 @@ parser.add_argument('--casename', '-n', type=str, default='diamond_MD20000_189x1
 parser.add_argument('--scale_cell', '-sc', type=float, default=1, help='Scale the cell side by this scale (default = 1)')
 parser.add_argument('--poisson', '-nu', type=float, default=0.200, help="Poisson's ratio")
 parser.add_argument('--bmag', '-b', type=float, default=2.522e-10, help="Burger's magnitude (m)")
-parser.add_argument('--diffraction_plane', '-dp', type=str, default='004', help='Diffraction plane of diamond (004 or 111)')
+parser.add_argument('--diffraction_plane', '-hkl', type=str, default='004', help='Diffraction plane of diamond (004 or 111)')
 parser.add_argument('--rocking', '-phi', type=float, default=0, help='Rocking angle (deg) for the DFXM')
 parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling angle (deg) for the DFXM')
 parser.add_argument('--shift', '-sh', type=float, default=[-5, 0, 0], nargs='+', help='Shift of the observation points (um)')
