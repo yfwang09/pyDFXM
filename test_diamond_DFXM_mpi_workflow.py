@@ -112,6 +112,8 @@ if rank == 0:
     forward_dict['hkl'] = hkl
     forward_dict['x_c'] = x_c
     forward_dict['y_c'] = y_c
+    forward_dict['phi'] = phi
+    forward_dict['chi'] = chi
 
     print(forward_dict)
 
@@ -185,8 +187,8 @@ if rank == 0:
     select_seg_inside = []
     for ilink in range(nsegs):
         link = disl.links[ilink]
-        end1 = disl.rn[int(link[0])]*bmag
-        end2 = disl.rn[int(link[1])]*bmag
+        end1 = disl.rn[int(link[0])]*bmag - np.multiply(shift, 1e-6)
+        end2 = disl.rn[int(link[1])]*bmag - np.multiply(shift, 1e-6)
         s1 = np.linalg.inv(obs_cell).dot(end1)
         s2 = np.linalg.inv(obs_cell).dot(end2)
         if np.all(np.abs(s1) < cutoff) or np.all(np.abs(s2) < cutoff):
