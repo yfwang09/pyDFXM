@@ -144,8 +144,8 @@ class DFXM_forward():
 
         # Sample incoming rays
         if saved_q is None:
-            zeta_v = np.random.randn(Nrays)*d['zeta_v_rms']
-            # zeta_v = (np.random.rand(Nrays) - 0.5)*d['zeta_v_rms']*2.35 # using uniform distribution to be consistent with Henning's implementation
+            # zeta_v = np.random.randn(Nrays)*d['zeta_v_rms']
+            zeta_v = (np.random.rand(Nrays) - 0.5)*d['zeta_v_rms']*2.35 # using uniform distribution to be consistent with Henning's implementation
             zeta_h = np.random.randn(Nrays)*d['zeta_h_rms']
             eps    = np.random.randn(Nrays)*d['eps_rms']
 
