@@ -41,13 +41,15 @@ import visualize_helper as vis
 # casename = 'diamond_10um_screw_helix3_pbc'
 # casename = 'diamond_10um_screw_pbc'
 # casename = 'diamond_DD0039'
-casename = 'diamond_MD0_200x100x100'
-# casename = 'diamond_MD20000_189x100x100'
+# casename = 'diamond_MD0_200x100x100'
+casename = 'diamond_MD20000_189x100x100'
 # casename = 'diamond_MD50000_174x101x100'
 # casename = 'diamond_MD100000_149x100x101'
 # casename = 'diamond_MD150000_131x100x104'
 # casename = 'diamond_MD200000_114x100x107'
-scale_cell = 1                    # scale the cell side by this scale (default = 1)
+# scale_cell = 1                    # scale the cell side by this scale (default = 1)
+scale_cell = 0.25
+# scale_cell = 0.5
 casename_scaled = casename + '_scale%d'%(1/scale_cell)
 cutoff = 0.51                       # Cutoff distance for the observation region (in scaled coordinates)
 
@@ -77,8 +79,8 @@ y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
 
 phi = chi = 0
 chi = 0
-phi = -0.0006
-shift = [-5, 0, 0]
+phi = 0
+shift = [0, 0, 0]
 
 casename_scaled_hkl = casename_scaled + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
 
@@ -258,12 +260,55 @@ for iphi, phi in enumerate(phi_values):
     model.d['chi'] = chi
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
     im, ql, rulers = model.forward(Fg_func, timeit=True)
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
+    saved_im_file = os.path.join(datapath, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
+    figax[0].savefig(saved_im_file, dpi=300, transparent=True)
     
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
 
 fig, ax = plt.subplots()
-ax.plot(phi_values, Imax)
-ax.plot(phi_values, Imin)
-ax.plot(phi_values, Iavg)
+ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
+ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
+ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
+ax.legend()
+ax.set_xlabel(r'Rocking $\phi$ (rad)')
+ax.set_ylabel('Intensity (a.u.)')
 plt.show()
+
+# %%
+# Calculating the rolling curve
+
+phi_values = np.arange(-0.004, 0.00401, 0.0001)#.round(4)
+chi = 0.0
+Imin = np.empty_like(phi_values)
+Imax = np.empty_like(phi_values)
+Iavg = np.empty_like(phi_values)
+
+for iphi, phi in enumerate(phi_values):
+    if np.isclose(phi, 0.0):
+        phi = 0
+    casename_scaled_phi_chi_hkl = casename_scaled + '_phi%.5f'%chi + '_chi%.5f'%phi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
+    print('#'*20 + ' Calculate and visualize the image')
+    saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_phi_chi_hkl)
+    print('saved displacement gradient at %s'%saved_Fg_file)
+
+    model.d['phi'] = chi
+    model.d['chi'] = phi
+    Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
+    im, ql, rulers = model.forward(Fg_func, timeit=True)
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
+    saved_im_file = os.path.join(datapath, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
+    figax[0].savefig(saved_im_file, dpi=300, transparent=True)
+
+    Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
+
+fig, ax = plt.subplots()
+ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
+ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
+ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
+ax.legend()
+ax.set_xlabel(r'Rolling $\chi$ (rad)')
+ax.set_ylabel('Intensity (a.u.)')
+plt.show()
+
 # %%

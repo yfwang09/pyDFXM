@@ -24,9 +24,11 @@ parser.add_argument('--bmag', '-b', type=float, default=2.522e-10, help="Burger'
 parser.add_argument('--diffraction_plane', '-hkl', type=str, default='004', help='Diffraction plane of diamond (004 or 111)')
 parser.add_argument('--rocking', '-phi', type=float, default=0, help='Rocking angle (deg) for the DFXM')
 parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling angle (deg) for the DFXM')
-parser.add_argument('--shift', '-sh', type=float, default=[-5, 0, 0], nargs='+', help='Shift of the observation points (um)')
+parser.add_argument('--shift', '-sh', type=float, default=[0, 0, 0], nargs='+', help='Shift of the observation points (um)')
 parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff distance for the observation region (in scaled coordinates)')
 args = parser.parse_args()
+
+args.scale_cell = 0.25
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
@@ -302,3 +304,5 @@ if rank == 0:
     r_obs = r_obs_cell.reshape((-1, 3))
     if not os.path.exists(r_obs_xyz_file):
         dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
+
+# %%
