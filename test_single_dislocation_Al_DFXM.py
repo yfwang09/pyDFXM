@@ -6,7 +6,6 @@
 #---------------------------------------------------------------
 
 import os, time
-from typing import Never
 import numpy as np
 import matplotlib.pyplot as plt
 import dispgrad_func as dgf
