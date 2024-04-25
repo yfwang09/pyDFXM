@@ -88,6 +88,63 @@ def read_vtk(fileName, scale_cell=1, verbose=False, select_seg=None):
 
     return rn, links, cell
 
+def write_vtk(fileName, rn, links, cell, btype=None, origin=(0, 0, 0), scale_cell=1):
+    """ Write VTK file for dislocation data
+    
+    Parameters
+    ----------
+    fileName : str
+        Name of the VTK file
+    rn : ndarray
+        Coordinates of the nodes
+    links : ndarray
+        Connectivity of the nodes
+    cell : ndarray
+        Cell dimensions
+    btype : ndarray, optional
+        Burgers vector type
+    origin : tuple, optional
+        Origin of the cell (not used for now)
+    scale_cell : float, optional
+        Scaling factor for the coordinates
+    """
+    cell = cell/scale_cell
+    rn = rn/scale_cell
+    endpoints = np.array([[-1, -1, -1], [1, -1, -1], 
+                          [1, 1, -1], [-1, 1, -1],
+                          [-1, -1, 1], [1, -1, 1],
+                          [1, 1, 1], [-1, 1, 1]]) * np.diag(cell)/2
+    rn = np.vstack([endpoints, rn])
+    links[:, :2] = links[:, :2] + 8
+    if btype is None:
+        btype = 2*np.ones(links.shape[0], dtype=int)
+    with open(fileName, 'w') as f:
+        print('# vtk DataFile Version 3.0', file=f)
+        print('Dislocation data written by disl_io_helper.write_vtk', file=f)
+        print('ASCII', file=f)
+        print('DATASET UNSTRUCTURED_GRID', file=f)
+        print('POINTS %d float'%rn.shape[0], file=f)
+        for i in range(rn.shape[0]):
+            print('%.10f %.10f %.10f'%tuple(rn[i, :]), file=f)
+        print('CELLS %d %d'%(links.shape[0] + 1, links.shape[0]*3 + 9), file=f)
+        print('8 0 1 2 3 4 5 6 7', file=f)
+        for i in range(links.shape[0]):
+            print('2 %d %d'%tuple(links[i, :2]), file=f)
+        print('CELL_TYPES %d'%(links.shape[0] + 1), file=f)
+        print('12', file=f) # simulation cell
+        for i in range(links.shape[0]):
+            print('4', file=f) # line
+        print('CELL_DATA %d'%(links.shape[0] + 1), file=f)
+        print('SCALARS Burgers_type int 1', file=f)
+        print('LOOKUP_TABLE default', file=f)
+        print('-1', file=f)
+        for i in range(links.shape[0]):
+            print('%d'%btype[i], file=f)
+        print('VECTORS Burgers float', file=f)
+        print('0.0 0.0 0.0', file=f)
+        for i in range(links.shape[0]):
+            print('%.10f %.10f %.10f'%tuple(links[i, 2:5]), file=f)
+
 def create_single_disl(xi, b=[1,1,0], n=[1,-1,1], L=20000, shift=[0,0,0]):
     xi = np.divide(xi, np.linalg.norm(xi))
     b  = np.divide(b,  np.linalg.norm(b))
