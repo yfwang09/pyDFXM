@@ -123,7 +123,13 @@ for model.d['phi'] in np.arange(-0.001, 0.00101, 0.0002):
     im, ql, rulers = model.forward(Fg_func)
 
     # Visualize the simulated image
-    figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
+    if model.d['phi'] == 0.001:
+        vlim_im = [0, 1.48]
+    else:
+        vlim_im = [None, None]
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False, vlim_im=vlim_im)
+    # figax[0].savefig('rocking_curve_phi%.4f.png'%model.d['phi'])
+    # plt.close()
 
 # Visualize the reciprocal space wave vector ql
 # figax = vis.visualize_im_qi(forward_dict, None, ql, rulers, vlim_qi=[-1e-4, 1e-4])

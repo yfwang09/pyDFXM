@@ -15,7 +15,6 @@ if 1 not in perform_test:
     print('Test 1 skipped')
 else:
 
-    from matplotlib import tight_layout
     import numpy as np
     import dispgrad_func as dgf
 
