@@ -26,6 +26,7 @@ parser.add_argument('--rocking', '-phi', type=float, default=0, help='Rocking an
 parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling angle (deg) for the DFXM')
 parser.add_argument('--shift', '-sh', type=float, default=[0, 0, 0], nargs='+', help='Shift of the observation points (um)')
 parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff distance for the observation region (in scaled coordinates)')
+parser.add_argument('--slip', '-s', type=int, default=None, help='slip system')
 args = parser.parse_args()
 
 args.scale_cell = 0.25
@@ -61,9 +62,12 @@ if rank == 0:
     phi, chi = args.rocking, args.rolling
     shift = args.shift
     cutoff = args.cutoff
-    casename_scaled = casename + '_scale%d'%(1/scale_cell) + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift)
-
     config_dir = 'configs'
+    if args.slip is not None:
+        config_dir = os.path.join('configs', 'config_%s'%casename)
+        casename = casename + '_slip%d'%args.slip
+
+    casename_scaled = casename + '_scale%d'%(1/scale_cell) + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift)
     config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
     config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename_scaled)
     config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename_scaled)
