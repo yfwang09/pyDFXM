@@ -319,6 +319,7 @@ ind_other_b = [np.logical_and(other_slip_b >= 0, other_slip_b < 6),      # <110>
                np.logical_and(other_slip_b >= 10, other_slip_b < 22),    # <112>
                np.logical_and(other_slip_b >= 22, other_slip_b < 25),    # <100>
                ]
+label_other_b = [r'[110]', r'[111]', r'[112]', r'[100]']
 
 # summarize the slip systems
 slip_seg_s = []
@@ -338,7 +339,7 @@ for i in range(len(ind_other_b)):
     slip_seg_s.append(np.isin(slip_list, -inds-1).nonzero()[0])
     slip_count_s.append(np.sum(slip_count_b[inds]))
     slip_len_s.append(np.sum(slip_len_b[inds]))
-    slip_label_s.append(f'other b{label_b[i]}')
+    slip_label_s.append(f'other b{label_other_b[i]}')
 slip_seg_s.append(np.nonzero(slip_list == -1001)[0])
 slip_count_s = np.array(slip_count_s + [slip_count_other, ])
 slip_len_s = np.array(slip_len_s + [slip_len_other, ])
@@ -387,10 +388,12 @@ for i in range(len(slip_label_s)):
         disl.links[:, :2] = inverse.reshape(-1, 2)
 
         config_slip_ca_file = os.path.join(config_dir, 'config_%s_slip%d.ca'%(casename, k))
-        ca_data = disl.write_network_ca(config_slip_ca_file, bmag=bmag)
+        if not os.path.exists(config_slip_ca_file):
+            ca_data = disl.write_network_ca(config_slip_ca_file, bmag=bmag)
         config_slip_vtk_file = os.path.join(config_dir, 'config_%s_slip%d.vtk'%(casename, k))
         btype = np.ones(disl.links.shape[0], dtype=int)*i
-        dio.write_vtk(config_slip_vtk_file, disl.rn, disl.links, disl.cell, btype)
+        if not os.path.exists(config_slip_vtk_file):
+            dio.write_vtk(config_slip_vtk_file, disl.rn, disl.links, disl.cell, btype)
         print('Slip system %d'%k, f'{slip_label_s[i]}: {slip_count_s[i]} segs, {slip_len_s[i]:.2f} b')
         print('Slip system %d'%k, f'{slip_label_s[i]}: {slip_count_s[i]} segs, {slip_len_s[i]:.2f} b', file=f)
         k += 1
