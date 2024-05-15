@@ -29,7 +29,7 @@ parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff dis
 parser.add_argument('--slip', '-s', type=int, default=None, help='slip system')
 args = parser.parse_args()
 
-args.scale_cell = 0.25
+# args.scale_cell = 0.25
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
@@ -67,7 +67,8 @@ if rank == 0:
         config_dir = os.path.join('configs', 'config_%s'%casename)
         casename = casename + '_slip%d'%args.slip
 
-    casename_scaled = casename + '_scale%d'%(1/scale_cell) + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift)
+    # casename_scaled = casename + '_scale%d'%(1/scale_cell) + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift)
+    casename_scaled = casename + '_scale%d'%(1/scale_cell) + '_shift-%.2f-%.2f-%.2f'%tuple(shift)
     config_file = os.path.join(config_dir, 'config_%s.vtk'%casename)
     config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename_scaled)
     config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename_scaled)
@@ -128,6 +129,11 @@ if rank == 0:
     os.makedirs(datapath, exist_ok=True)
     saved_res_fn = os.path.join(datapath, 'Res_qi_diamond_001.npz')
     print('saved resolution function at %s'%saved_res_fn)
+
+    Fg_path = os.path.join(datapath, 'Fg_%s_seg'%casename)
+    os.makedirs(Fg_path, exist_ok=True)
+    im_path = os.path.join(datapath, 'im_%s_seg'%casename)
+    os.makedirs(im_path, exist_ok=True)
 
     # Set up the pre-calculated displacement gradient
     model = fwd.DFXM_forward(forward_dict, load_res_fn=saved_res_fn)
@@ -225,6 +231,7 @@ if rank == 0:
     NU = disl.d['nu']
     a = disl.a
     saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
+    saved_Fg_seg_file = os.path.join(Fg_path, 'Fg_%s'%(casename_scaled_hkl, ))
 else:
     rnorm = None
     rn = None
@@ -232,6 +239,8 @@ else:
     NU = None
     a = None
     saved_Fg_file = None
+    saved_Fg_seg_file = None
+    select_seg_inside = None
 
 verbose = True
 rnorm = comm.bcast(rnorm, root=0)
@@ -240,6 +249,8 @@ links = comm.bcast(links, root=0)
 NU = comm.bcast(NU, root=0)
 a = comm.bcast(a, root=0)
 saved_Fg_file = comm.bcast(saved_Fg_file, root=0)
+saved_Fg_seg_file = comm.bcast(saved_Fg_seg_file, root=0)
+select_seg_inside = comm.bcast(select_seg_inside, root=0)
 
 if os.path.exists(saved_Fg_file):
     print('The displacement gradient is already calculated and saved at %s'%saved_Fg_file)
@@ -256,8 +267,10 @@ else:
         r2 = rn[n2, :]
         b = links[i, 2:5]
         tic = time.time()
-        dudx_worker += dgh.displacement_gradient_seg_optimized(NU, b, r1, r2, rnorm, a)
+        dudx_segment = dgh.displacement_gradient_seg_optimized(NU, b, r1, r2, rnorm, a)
+        dudx_worker += dudx_segment
         toc = time.time()
+        np.savez_compressed(saved_Fg_seg_file + '_iseg%d_DFXM.npz'%(select_seg_inside[i], ), Fg=dudx_segment)
         if verbose:
             print('worker %d: link %d is calculated in %.2f seconds'%(rank, i, toc-tic))
 
