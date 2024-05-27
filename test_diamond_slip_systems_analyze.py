@@ -5,7 +5,6 @@
 #%%
 # Importing necessary libraries
 
-from functools import partial
 import os
 import numpy as np
 import pandas as pd
