@@ -14,6 +14,32 @@ import forward_model as fwd
 import visualize_helper as vis
 import disl_io_helper as dio
 
+import argparse
+
+parser = argparse.ArgumentParser(description='DFXM forward calculation for diamond DDD configurations')
+parser.add_argument('--casename', '-n', type=str, default='diamond_MD20000_189x100x100', help='The name of the DDD configuration')
+parser.add_argument('--scale_cell', '-sc', type=float, default=1, help='Scale the cell side by this scale (default = 1)')
+parser.add_argument('--poisson', '-nu', type=float, default=0.200, help="Poisson's ratio")
+parser.add_argument('--bmag', '-b', type=float, default=2.522e-10, help="Burger's magnitude (m)")
+parser.add_argument('--diffraction_plane', '-hkl', type=str, default='111', help='Diffraction plane of diamond (004 or 111)')
+parser.add_argument('--rocking', '-phi', type=float, default=0, help='Rocking angle (deg) for the DFXM')
+parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling angle (deg) for the DFXM')
+parser.add_argument('--shift', '-sh', type=float, default=[0, 0, 0], nargs='+', help='Shift of the observation points (um)')
+parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff distance for the observation region (in scaled coordinates)')
+parser.add_argument('--slip', '-s', type=int, default=None, help='slip system')
+args = parser.parse_args()
+
+casename   = args.casename
+scale_cell = args.scale_cell
+phi, chi = args.rocking, args.rolling
+shift = args.shift
+cutoff = args.cutoff
+slipstr = ''
+if args.slip is not None:
+    config_dir = os.path.join('configs', 'config_%s'%casename)
+    slipstr = '_slip%d'%args.slip
+    slip_type = 'sliptype_%d.txt'%args.slip
+
 #%%
 # Define the elasticity properties of diamond
 # and the input dictionary for the dislocation network
@@ -22,7 +48,6 @@ input_dict = dgf.default_dispgrad_dict('disl_network')
 
 input_dict['nu'] = NU = 0.200       # Poisson's ratio
 input_dict['b'] = bmag = 2.522e-10  # Burger's magnitude (m)
-two_theta = 48.16                   # 2theta for diamond-(004) (deg)
 
 # Set up the dislocation network object
 disl = dgf.disl_network(input_dict)
@@ -51,25 +76,25 @@ def load_disl_network(casename, verbose=False,
 #%%
 # Define the geometry
 
-casename = 'diamond_MD20000_189x100x100'
-scale_cell = 0.5
-cutoff = 0.51                       # Cutoff distance for the observation region (in scaled coordinates)
-
 rn, links = load_disl_network(casename, scale_cell=scale_cell)
 
-# Diffraction plane of diamond (004)
-two_theta = 48.16                   # 2theta for diamond-(004) (deg)
-hkl = [0, 0, 1]                     # hkl for diamond-(004) plane
-x_c = [1, 0, 0]                     # x_c for diamond-(004) plane
-y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
+diffraction_plane = args.diffraction_plane
+if diffraction_plane == '004':
+    # Diffraction plane of diamond (004)
+    two_theta = 48.16                   # 2theta for diamond-(004) (deg)
+    hkl = [0, 0, 1]                     # hkl for diamond-(004) plane
+    x_c = [1, 0, 0]                     # x_c for diamond-(004) plane
+    y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
+elif diffraction_plane == '111':
+    # Diffraction plane of diamond (111)
+    two_theta = 20.06                   # 2theta for diamond-(111) (deg)
+    hkl = [1, 1, 1]                     # hkl for diamond-(111) plane
+    x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
+    y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
+else:
+    raise ValueError('Unknown diffraction plane: %s'%diffraction_plane)
 
-# Diffraction plane of diamond (111)
-# two_theta = 20.06                   # 2theta for diamond-(111) (deg)
-# hkl = [1, 1, 1]                     # hkl for diamond-(111) plane
-# x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
-# y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
-
-casename_scaled = casename + '_scale%d'%(1/scale_cell)
+casename_scaled = casename + slipstr + '_scale%d'%(1/scale_cell)
 
 phi = chi = 0
 shift = [0, 0, 0]
@@ -344,3 +369,5 @@ plt.show()
 
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_DFXM.npz')
 np.savez_compressed(saved_mosaic_space, PHI=PHI, CHI=CHI, Imin=Imin, Imax=Imax, Iavg=Iavg)
+
+# %%
