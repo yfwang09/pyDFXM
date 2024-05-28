@@ -1,402 +1,304 @@
-#%%-----------------------------------------------------------------
-# Analysis of dislocation slip systems
-#
-# Developer: Yifan Wang, yfwang09@stanford.edu
-# Date: 2024/04/12
-#---------------------------------------------------------------
+# This script is used to create the statistics of the slip systems in the MD simulation
+# date: 2024/05/24
+# author: Yifan Wang (yfwang09@stanford.edu)
 
-import os, glob
+#%%
+# Importing necessary libraries
+
+import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-import dispgrad_func as dgf
-import forward_model as fwd
 import visualize_helper as vis
+import dispgrad_func as dgf
 import disl_io_helper as dio
-from itertools import product
 
-#%%-------------------------------------------------------
-# INITIALIZATION
-#---------------------------------------------------------
+#%%
+# Define the elasticity properties of diamond
+# and the input dictionary for the dislocation network
 
-# Configuration files
-casenames = [
-    # 'diamond_10um_60deg_pbc',
-    # 'diamond_10um_config1_pbc',
-    # 'diamond_10um_config2_pbc',
-    # 'diamond_10um_config3_pbc',
-    # 'diamond_10um_screw_helix1_pbc',
-    # 'diamond_10um_screw_helix2_pbc',
-    # 'diamond_10um_screw_helix3_pbc',
-    # 'diamond_10um_screw_pbc',
-    # 'diamond_DD0039',
-    # 'diamond_MD0_200x100x100',
-    # 'diamond_MD20000_189x100x100',
-    'diamond_MD50000_174x101x100',
-    # 'diamond_MD100000_149x100x101',
-    # 'diamond_MD150000_131x100x104',
-    # 'diamond_MD200000_114x100x107'
-]
+input_dict = dgf.default_dispgrad_dict('disl_network')
 
-for i, casename in enumerate(casenames):
-    # if casename == 'diamond_MD0_200x100x100':
-    #     test_physical_disl = False
-    # else:
-    #     test_physical_disl = True
+input_dict['nu'] = NU = 0.200       # Poisson's ratio
+input_dict['b'] = bmag = 2.522e-10  # Burger's magnitude (m)
+two_theta = 48.16                   # 2theta for diamond-(004) (deg)
 
-    config_vtk = 'configs'
+# Set up the dislocation network object
+disl = dgf.disl_network(input_dict)
+
+#%%
+# Define the functions
+
+def load_disl_network(casename, verbose=False, 
+        config_vtk='configs', select_seg=None,
+        save_ca_file=None, reduced=False, scale_cell=1.0
+    ):
     config_file = os.path.join(config_vtk, 'config_%s.vtk'%casename)
     config_dir = os.path.join(config_vtk, 'config_%s'%casename)
     os.makedirs(config_dir, exist_ok=True)
-    config_ca_file = os.path.join(config_dir, 'config_%s.ca'%casename)
-    config_reduced_ca_file = os.path.join(config_dir, 'config_%s_reduced.ca'%casename)
-    # config_reduced_ca_file = os.path.join(config_dir, 'config_reduced_%d.ca'%i)
 
-    # Elasticity parameters (Diamond)
-    input_dict = dgf.default_dispgrad_dict('disl_network')
-    # print(input_dict)
+    disl.load_network(config_file, select_seg=select_seg, scale_cell=scale_cell)
+    if save_ca_file is not None:
+        disl.write_network_ca(os.path.join(config_dir, save_ca_file), bmag=bmag, reduced=reduced, pbc=True)
 
-    input_dict['nu'] = NU = 0.200       # Poisson's ratio
-    input_dict['b'] = bmag = 2.522e-10  # Burger's magnitude (m)
-    two_theta = 48.16                   # 2theta for diamond-(004) (deg)
+    if verbose:
+        print('node number', disl.rn.shape)
+        print('link number', disl.links.shape)
 
-    # Load the dislocation network
-    disl = dgf.disl_network(input_dict)
-    disl.load_network(config_file)
+    return disl.rn, disl.links
 
-    # Write the dislocation network into a CA file
-    ca_data = disl.write_network_ca(config_ca_file, bmag=bmag)
-    print('CA file saved at %s'%config_ca_file)
+def vec2int(bvecs, atol=1e-5):
+    ''' Calculate the integer Burgers vector
+    
+    Parameters
+    ----------
+    bvecs : array_like (n, 3)
+        Burgers vector
 
-    # Combine redundant nodes
-    rn, rn_idx = np.unique(disl.rn, axis=0, return_inverse=True)
+    Returns
+    -------
+    bints : array_like (n, 3)
+        Integer Burgers vector
+    bnorm : array_like (n,)
+        Integer Burgers magnitude
+    '''
+    if bvecs.shape == (3, ):
+        bvecs.reshape(1, 3)
+
+    # Normalize the Burger's vectors to find the integer notations
+    invblen = bvecs**2
+    invblen[np.isclose(invblen, 0, atol=atol)] = -1 # filter out zero values
+    bnorm = (1/invblen).max(axis=1, keepdims=True).round()
+    bints = (bvecs*np.sqrt(bnorm)).round()
+    # Reduce the Burger's vectors with different signs to the same sign
+    bints[bints[:, 0] < 0, :] *= -1
+    bints[np.logical_and(bints[:, 0] == 0, bints[:, 1] < 0), :] *= -1
+    bints[np.logical_and(np.logical_and(bints[:, 0] == 0, bints[:, 1] == 0), bints[:, 2] < 0), :] *= -1
+    bnorm = np.sum(bints**2, axis=1)
+
+    return bints.astype(int), bnorm.flatten().astype(int)
+
+def unique_vectors(nints, verbose=None):
+    nunique, n_inv, n_cnt = np.unique(nints, return_inverse=True, return_counts=True, axis=0)           # (n_unique, 3), (n_nvec, ), (n_unique, )
+    n_ind = (n_inv[None, :] == np.arange(n_cnt.size, dtype=int)[:, None])   # (n_unique, n_nvec)
+    # Get the unique values of the nnorm
+    nnorm = np.sum(nunique**2, axis=1)  # (n_unique, )
+    nnorm_unique, nnorm_inv, nnorm_cnt = np.unique(nnorm, return_inverse=True, return_counts=True)              # (n_norm_unique, ), (n_unique, ), (n_norm_unique, )
+
+    for i, nnorm in enumerate(nnorm_unique):
+        nprint = nunique[nnorm_inv == i]
+        ncount = n_cnt[nnorm_inv == i]
+        n_inds = n_ind[nnorm_inv == i, :]
+        if verbose is not None:
+            print('%s: 1/%d'%(verbose, nnorm), len(nprint))
+            for k in range(len(nprint)):
+                print('    [%3d%3d%3d] %d,'%(*tuple(nprint[k].astype(int)), ncount[k]))
+
+#%%
+# function for calculating the slip systems
+
+def slip_system_analysis(disl, verbose=True):
+    nlink = disl.links.shape[0]
+    
+    # Delete the redundant nodes
+    rn_reduced, rn_idx = np.unique(disl.rn, axis=0, return_inverse=True)
     links = disl.links.copy()
     links[:, 0:2] = rn_idx[disl.links[:, 0:2].astype(int)]
-    disl.rn = disl.d['rn'] = rn
-    disl.links = disl.d['links'] = links
-    ca_data = disl.write_network_ca(config_reduced_ca_file, bmag=bmag) #, reduced=True)
 
-    # Reduce dislocation segments to physical nodes
-    ca_data = disl.write_network_ca('config_reduced.ca', bmag=bmag, reduced=True, pbc=True)
-    disl_list = ca_data['disl_list']
-    disl_edge_list = ca_data['disl_edge_list']
-    print('Number of dislocations:', len(disl_list))
+    # Calculate the Burgers and Normal vectors
+    rvecs = disl.rn[disl.links[:, 1].astype(int), :] - disl.rn[disl.links[:, 0].astype(int), :]
+    rnorm = np.linalg.norm(rvecs, axis=1)
+    bvecs = disl.links[:, 2:5]
+    nvecs = disl.links[:, 5:8]
+    # rints, _ = vec2int(rvecs)
+    # rname = ['[%3d%3d%3d]'%tuple(rints[k, :]) for k in range(nlink)]
+    bints, bnorm = vec2int(bvecs)
+    nints, nnorm = vec2int(nvecs, atol=0.02)
+    bname = ['1/%d[%3d%3d%3d]'%(bnorm[k], *tuple(bints[k, :])) for k in range(nlink)]
+    nname = ['1/%d(%3d%3d%3d)'%(nnorm[k], *tuple(nints[k, :])) for k in range(nlink)]
+    sname = ['%s %s'%(bname[k], nname[k]) for k in range(nlink)]
+    rbang = np.rad2deg(np.arccos(np.abs(np.sum(rvecs * bvecs, axis=1)/rnorm)))
+
+    # Define the pandas dataframe
+    df = pd.DataFrame(
+        {
+            'r0_id': disl.links[:, 0].astype(int),
+            'r1_id': disl.links[:, 1].astype(int),
+            'rnorm': rnorm, 
+            # 'rname': rname,
+            'angle': rbang,
+            # 'r0_reduced': links[:, 0].astype(int),
+            # 'r1_reduced': links[:, 1].astype(int),
+            # 'sname': pd.Categorical(sname),
+            'sname': pd.Series(sname, dtype='string'),
+            'bnorm': bnorm, #'bname': pd.Categorical(bname),
+            # 'bi0': bints[:, 0], 'bi1': bints[:, 1], 'bi2': bints[:, 2],
+            'bname': pd.Series(bname, dtype='string'),
+            'nnorm': nnorm, #'nname': pd.Categorical(nname), 
+            'nname': pd.Series(nname, dtype='string'),
+            # 'ni0': nints[:, 0], 'ni1': nints[:, 1], 'ni2': nints[:, 2],
+        }
+    )
+    return df, (rn_reduced, links)
 
 # %%
-# merge redundant links
-    
-links = disl.links.copy()
-print('Number of dislocation segments:', links.shape[0])
-while True:
-    links_distr = np.logical_and(links[:, None, 0] == links[None, :, 1], 
-                                 links[:, None, 1] == links[None, :, 0])
-    
-    reversed_links = np.triu(links_distr, k=1)
-    print('Number of reversed links:', np.count_nonzero(reversed_links))
-    for i, j in zip(*reversed_links.nonzero()):
-        links[j, :2] = links[j, :2][::-1]
-        links[j, 2:5] = -links[j, 2:5]
-        links[j, 5:8] = -links[j, 5:8]
+# Function for slip system statistics
 
-    links_dist = np.logical_and(links[:, None, 0] == links[None, :, 0], 
-                                links[:, None, 1] == links[None, :, 1])
-
-    redundant_links = np.triu(links_dist, k=1)
-    print('Number of redundant links:', np.count_nonzero(redundant_links))
-    if np.count_nonzero(redundant_links) == 0:
-        break
-    links_to_be_deleted = redundant_links.nonzero()[1]
-    for i, j in zip(*redundant_links.nonzero()):
-        rseg = disl.rn[links[i, 1].astype(int)] - disl.rn[links[i, 0].astype(int)]
-        rsegnorm = rseg/np.linalg.norm(rseg)
-        btot = links[i, 2:5] + links[j, 2:5]
-        if np.linalg.norm(btot) < 1e-10:
-            links_to_be_deleted = np.append(links_to_be_deleted, i)
+def slip_system_stats(df, verbose=True, 
+    conds={'full dislocation': ['bnorm == 2 and nnorm == 3']}
+):
+    data = {}
+    for key, cond in conds.items():
+        condition, disl_type_name = tuple(cond)
+        subgroup = df.query(condition)
+        if disl_type_name == 'sname':
+            subgroup = subgroup.assign(disltype=subgroup[disl_type_name])
+        elif disl_type_name == 'bname':
+            subgroup = subgroup.assign(disltype=subgroup[disl_type_name].str.cat([key,]*subgroup.shape[0], sep=' '))
         else:
-            btotnorm = btot/np.linalg.norm(btot)
-            links[i, 2:5] = btotnorm
-            links[i, 5:8] = np.cross(btotnorm, rsegnorm)
-        # print(i, j, links[i, :2], links[j, :2])
-        # print('  ', links[i, 2:5], links[j, 2:5],
-        #     links[i, 2:5] + links[j, 2:5])
-
-    links = np.delete(links, links_to_be_deleted, axis=0)
-
-print('Number of dislocation segments:', links.shape[0])
-disl.links = disl.d['links'] = links
-
-config_merged_ca_file = os.path.join(config_dir, 'config_%s_merged.ca'%casename)
-disl.write_network_ca(config_merged_ca_file, bmag=bmag)
+            subgroup = subgroup.assign(disltype=key)
+        
+        sorted = subgroup.sort_values(by='disltype')
+        if verbose:
+            if sorted.shape[0] > 0:
+                print('%6d/%6d    %s'%(sorted.shape[0], df.shape[0], sorted.iat[0, -1]))
+            else:
+                print('%6d/%6d    %s'%(0, df.shape[0], key))
+        data[key] = sorted
+    return data
 
 # %%
-# Define slip systems
+# Statistics of the slip system
 
-# Slip systems
-slip_n = np.array([
-    # (111) slip systems
-    [1, 1, 1],      # 0: 1/3[111]
-    [-1, -1, 1],    # 1: 1/3[-1-11]
-    [-1, 1, -1],    # 2: 1/3[-11-1]
-    [1, -1, -1],    # 3: 1/3[1-1-1]
-    # (001) slip systems
-    [0, 0, 1],      # 4: [001]
-    [0, 1, 0],      # 5: [010]
-    [1, 0, 0],      # 6: [100]
-    # (110) slip planes
-    [1, 1, 0],      # 7: 1/2[110]
-    [1, 0, 1],      # 8: 1/2[101]
-    [0, 1, 1],      # 9: 1/2[011]
-    [1, -1, 0],     # 10: 1/2[-110]
-    [0, 1, -1],     # 11: 1/2[0-11]
-    [-1, 0, 1],     # 12: 1/2[-101]
-    # (112) slip planes
-    [1, 1, 2],      # 13: 1/6[112]
-    [1, 2, 1],      # 14: 1/6[121]
-    [2, 1, 1],      # 15: 1/6[211]
-    [1, 1, -2],     # 16: 1/6[1-12]
-    [1, -2, 1],     # 17: 1/6[-121]
-    [-2, 1, 1],     # 18: 1/6[-211]
-    [1, -1, 2],     # 19: 1/6[1-21]
-    [2, 1, -1],     # 20: 1/6[21-1]
-    [-1, 2, 1],     # 21: 1/6[-211]
-    [-1, 1, 2],     # 22: 1/6[-121]
-    [2, -1, 1],     # 23: 1/6[211]
-    [1, 2, -1],     # 24: 1/6[121]
-])
-slip_b = np.array([
-    # <110>
-    [1, -1, 0],
-    [-1, 0, 1],
-    [0, 1, -1],
-    [1, 1, 0],
-    [0, 1, 1],
-    [1, 0, 1],
-    # <111>
-    [1, 1, 1],
-    [-1, 1, 1],
-    [1, -1, 1],
-    [1, 1, -1],
-    # <112>
-    [1, 1, 2],
-    [1, 2, 1],
-    [2, 1, 1],
-    [1, 1, -2],
-    [1, -2, 1],
-    [-2, 1, 1],
-    [1, -1, 2],
-    [2, 1, -1],
-    [-1, 2, 1],
-    [-1, 1, 2],
-    [2, -1, 1],
-    [1, 2, -1],
-    # <100>
-    [1, 0, 0],
-    [0, 1, 0],
-    [0, 0, 1],
-])
+casenames = [
+    'diamond_MD0_200x100x100',
+    'diamond_MD20000_189x100x100',
+    'diamond_MD50000_174x101x100',
+    'diamond_MD100000_149x100x101',
+    'diamond_MD150000_131x100x104', 
+    'diamond_MD200000_114x100x107'
+]
 
-# Slip system indices
+disltypes = {
+    r'<110>{111} full': # 'full dislocation': 
+        ['bnorm == 2 and (nnorm == 3 or angle < 5)', ''],
+    r'<111> frank':
+        ['bnorm == 3', ''],
+    # '1/2<110> jog': # 'full jog':
+    #     ['bnorm == 2 and nnorm != 3', ''],
+    r'<011>{100}': # 'full jog1':
+        ['bnorm == 2 and nnorm == 1 and angle >= 5', ''],
+    r'<110>{110}': # 'full jog2':
+        ['bnorm == 2 and nnorm == 2 and angle >= 5', ''],
+    # r'<110>{311}': # 'full jog3':
+    #     ['bnorm == 2 and nnorm == 11', ''],
+    r'<110> full jog':
+        ['bnorm == 2 and (nnorm > 3 and angle >= 5)', ''],
+    # 'stair rod1':
+    #     ['bnorm == 1', 'bname'],
+    # 'stair rod2':
+    #     ['bnorm == 10', 'bname'],
+    r'<112>{111} shockley': # 'shockley partial':
+        ['bnorm == 6', ''],
+    # r'<112>{111} shockley': # 'shockley partial':
+    #     ['bnorm == 6 and nnorm == 3', ''],
+    # r'<112> shockley jog':
+    #     ['bnorm == 6 and nnorm != 3', ''],
+    'other':
+        ['bnorm != 2 and bnorm != 3 and bnorm != 6', ''],
+}
 
-slip_systems = np.array(np.nonzero(np.dot(slip_n, slip_b.T) == 0), dtype=int).T
-print(slip_systems.shape)
+verbose = True
+# fig, ax = plt.subplots(figsize=(8, 6))
+fs = 16
 
-# %%
-# Test the slip systems for each dislocation segment
+group_list = []
+counts = []
+length = []
 
-# Initialize the slip system list
-slip_list = -1001*np.ones(links.shape[0], dtype=int)
-# slip systems with well defined slip planes and Burgers vectors
-slip_seg = [[] for i in range(slip_systems.shape[0])]
-slip_count = np.zeros(slip_systems.shape[0], dtype=int)
-slip_len = np.zeros(slip_systems.shape[0])
-# slip systems with only well defined Burgers vectors
-slip_seg_b = [[] for i in range(slip_b.shape[0])]
-slip_count_b = np.zeros(slip_b.shape[0], dtype=int)
-slip_len_b = np.zeros(slip_b.shape[0])
-# all other slip systems
-slip_seg_other = []
-slip_count_other = 0
-slip_len_other = 0
-rtol = 0.1
-rtol_b = 1e-3
+for icase, casename in enumerate(casenames[:]):
+    if verbose:
+        print(casename)
+    rn, links = load_disl_network(casename)
+    df, disl_reduced = slip_system_analysis(disl, verbose=True)
 
-debug_single = False
-debug_all = False
+    groups = slip_system_stats(df, verbose=verbose, conds=disltypes)
+    group_list.append(groups)
+    sorted = pd.concat([groups[key] for key in groups.keys()])
 
-# Test each dislocation segment
-for id, link in enumerate(links):
-    # line vector
-    rseg = rn[link[1].astype(int)] - rn[link[0].astype(int)]
-    rsegnorm = rseg/np.linalg.norm(rseg)
-    # Burger's vector
-    bdots = np.abs(slip_b.dot(link[2:5])/np.linalg.norm(slip_b, axis=-1))
-    # print(bdots)
-    ind_b = np.isclose(bdots, 1, rtol=rtol_b).nonzero()[0]
+    counts.append(sorted['disltype'].value_counts(sort=False))
+    length.append(sorted.groupby('disltype', sort=False)['rnorm'].sum()*bmag*1e6)
 
-    # Slip plane normal
-    # a list of normal vectors perpendicular to b
-    ndotb = np.abs(slip_n.dot(link[2:5])/np.linalg.norm(slip_n, axis=-1))
-    # Find the normal vector perpendicular to the line vector
-    ndotr = np.abs(slip_n.dot(rsegnorm)/np.linalg.norm(slip_n, axis=-1))
-    ind_n = np.nonzero(np.logical_and(ndotr < rtol, ndotb < rtol_b))[0]
-    if id in [923, 919] and debug_single:
-        print('Disl segment', id)
-        print('  rsegnorm', rsegnorm)
-        print("  Burger's vector", link[2:5])
-        print("  Normal vector",   np.cross(link[2:5], rsegnorm))
-        print(ndotr)
-        print(ndotb)
-        print((ndotr < rtol).nonzero())
-        print((ndotb < rtol_b).nonzero())
-        print(ind_n)
+    bins = np.arange(0, sorted['disltype'].nunique()+1, 1)
+    hist_dict = {'bins': bins, 'weights': sorted['rnorm']*bmag*1e6}
 
-    if ind_b.size > 0 and ind_n.size > 0:
-        # print(ind_b, ind_n)
-        ind_s = np.where((np.isin(slip_systems[:, 0], ind_n)) & (slip_systems[:, 1]==ind_b))[0]
-        if ind_s.size > 0:
-            for ind_s_item in ind_s[:1]:
-                slip_list[id] = ind_s_item
-                slip_seg[ind_s_item].append(id)
-                slip_count[ind_s_item] += 1
-                slip_len[ind_s_item] += np.linalg.norm(rseg)
-            continue
-    
-    if ind_b.size > 0:
-        slip_list[id] = - (ind_b.item() + 1)
-        slip_seg_b[ind_b.item()].append(id)
-        slip_count_b[ind_b.item()] += 1
-        slip_len_b[ind_b.item()] += np.linalg.norm(rseg)
-        continue
-    
-    # other slip systems
-    print('Disl %d: Slip system not found'%(id, ))
-    print('rsegnorm', rsegnorm)
-    print("Burger's vector", link[2:5])
-    print("Normal vector",   np.cross(link[2:5], rsegnorm))
-    slip_seg_other.append(id)
-    slip_count_other += 1
-    slip_len_other += np.linalg.norm(rseg)
-    if debug_all:
-        print(ndotr)
-        print(ndotb)
-        print((ndotr < rtol).nonzero())
-        print((ndotb < rtol_b).nonzero())
-        print(ind_n)
+    # hist = sorted['disltype'].hist(ax=ax, xrot=90, rwidth=0.5, align='left', grid=False, alpha=0.5, label=casename.split('_')[1], **hist_dict)
+    axs = sorted.hist('angle', by='disltype', bins=15, alpha=0.5, figsize=(12, 9), sharex=True, layout=(3, 3))
 
-# %%
-# Plot the distribution of dislocation segments on each slip system
+    for ax in axs.flatten():
+        ax.set_xlabel('Angle (degree)')
+        ax.set_ylabel('Counts')
+        ax.set_xlim(0, 90)
+        ax.set_xticks(np.arange(0, 181, 30)//2)
+        ax.tick_params(direction='in')
+    figname = os.path.join('configs', 'config_%s'%casename, 'sliptype.png')
+    plt.savefig(figname, dpi=300)
+    plt.close()
 
-slip_sys_n = slip_systems[:, 0]
-ind_slip_n = [# np.logical_and(slip_sys_n >= 0, slip_sys_n < 4),      # {111}
-            slip_sys_n == 0,            # (111)
-            slip_sys_n == 1,            # (-1-11)
-            slip_sys_n == 2,            # (-11-1)
-            slip_sys_n == 3,            # (1-1-1)
-            np.logical_and(slip_sys_n >= 4, slip_sys_n < 7),      # {001}
-            np.logical_and(slip_sys_n >= 7, slip_sys_n < 13),     # {110}
-            np.logical_and(slip_sys_n >= 13, slip_sys_n < 25),    # {112}
-            ]
-# label_n = [r'(111)', r'(001)', r'(110)', r'(112)']
-label_n = [r'(111)', r'(1-11)', r'(-11-1)', r'(1-1-1)', r'(001)', r'(110)', r'(112)']
+    ax = sorted['angle'].plot(kind='hist', bins=15, alpha=0.5, figsize=(8, 6))
+    ax.set_xlabel('Angle (degree)', fontsize=fs)
+    ax.set_ylabel('Counts', fontsize=fs)
+    ax.set_xlim(0, 90)
+    ax.set_xticks(np.arange(0, 181, 30)//2)
+    ax.tick_params(direction='in', labelsize=fs-2)
+    figname = os.path.join('configs', 'config_%s'%casename, 'angles.png')
+    plt.savefig(figname, dpi=300)
+    plt.close()
 
-slip_sys_b = slip_systems[:, 1]
-ind_slip_b = [# np.logical_and(slip_sys_b >= 0, slip_sys_b < 6),      # <110>
-            slip_sys_b == 0,            # <1-10>
-            slip_sys_b == 1,            # <-101>
-            slip_sys_b == 2,            # <01-1>
-            slip_sys_b == 3,            # <110>
-            slip_sys_b == 4,            # <011>
-            slip_sys_b == 5,            # <101>
-            np.logical_and(slip_sys_b >= 6, slip_sys_b < 10),     # <111>
-            np.logical_and(slip_sys_b >= 10, slip_sys_b < 22),    # <112>
-            np.logical_and(slip_sys_b >= 22, slip_sys_b < 25),    # <100>
-            ]
-# label_b = [r'[110]', r'[111]', r'[112]', r'[100]']
-label_b = [r'[1-10]', r'[-101]', r'[01-1]', r'[110]', r'[011]', r'[101]', r'[111]', r'[112]', r'[100]']
-
-other_slip_b = np.arange(slip_b.shape[0], dtype=int)
-ind_other_b = [np.logical_and(other_slip_b >= 0, other_slip_b < 6),      # <110>
-               np.logical_and(other_slip_b >= 6, other_slip_b < 10),     # <111>
-               np.logical_and(other_slip_b >= 10, other_slip_b < 22),    # <112>
-               np.logical_and(other_slip_b >= 22, other_slip_b < 25),    # <100>
-               ]
-label_other_b = [r'[110]', r'[111]', r'[112]', r'[100]']
-
-# summarize the slip systems
-slip_seg_s = []
-slip_count_s = []
-slip_len_s = []
-slip_label_s = []
-for i, j in product(range(len(ind_slip_n)), range(len(ind_slip_b))):
-    indn = ind_slip_n[i]
-    indb = ind_slip_b[j]
-    inds = np.logical_and(indn, indb).nonzero()[0]
-    slip_seg_s.append(np.isin(slip_list, inds).nonzero()[0])
-    slip_count_s.append(np.sum(slip_count[inds]))
-    slip_len_s.append(np.sum(slip_len[inds]))
-    slip_label_s.append(f'n{label_n[i]}b{label_b[j]}')
-for i in range(len(ind_other_b)):
-    inds = ind_other_b[i].nonzero()[0]
-    slip_seg_s.append(np.isin(slip_list, -inds-1).nonzero()[0])
-    slip_count_s.append(np.sum(slip_count_b[inds]))
-    slip_len_s.append(np.sum(slip_len_b[inds]))
-    slip_label_s.append(f'other b{label_other_b[i]}')
-slip_seg_s.append(np.nonzero(slip_list == -1001)[0])
-slip_count_s = np.array(slip_count_s + [slip_count_other, ])
-slip_len_s = np.array(slip_len_s + [slip_len_other, ])
-slip_label_s = np.array(slip_label_s + ['others', ], dtype=str)
-ind_nonzero = np.nonzero(slip_count_s)[0]
-
-# plot all the slip systems
-plot_all = False
-if plot_all:
-    slip_count_s = slip_count
-    slip_len_s = slip_len
-    slip_label_s = np.array([f'{slip_n[n]}{slip_b[b]}' for n, b in slip_systems] + ['others', ], dtype=str)
-    ind_nonzero = np.arange(slip_count_s.size)
-    ind_nonzero = ind_nonzero[slip_count_s > 0]
-
-# Plot the distribution of dislocation segments on each slip plane
-fs = 18
-fig, (ax1, ax) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
-xvals = np.arange(ind_nonzero.size)
-ax1.bar(xvals, slip_len_s[ind_nonzero])
-ax1.set_ylabel('L/b', fontsize=fs)
-ax.bar(xvals, slip_count_s[ind_nonzero])
-ax.set_xticks(xvals)
-ax.set_xticklabels(slip_label_s[ind_nonzero], rotation=90, fontsize=fs)
-ax.set_ylabel(r'$n_{\rm seg}$', fontsize=fs)
-fig.tight_layout()
-
-# Save the figure
-fig.savefig(os.path.join(config_dir, 'slip_systems.png'))
+# ax.legend()
+# ax.set_xlabel('Slip systems', fontsize=fs)
+# ax.set_ylabel(r'Dislocation length (${\rm\mu}$m)', fontsize=fs)
+# fig.tight_layout()
 # plt.show()
 
 # %%
-# Save the ca files for each slip system groups
+# Plot the dislocation length
 
-rn_processed = disl.rn.copy()
-links_processed = disl.links.copy()
+df_counts = pd.concat(counts, axis=1, keys=[int(casename.split('_')[1][2:]) for casename in casenames[:]])
+df_counts = df_counts.transpose().sort_index(axis=0)
 
-f = open(os.path.join(config_dir, 'slip_systems.txt'), 'w')
-k = 0
-for i in range(len(slip_label_s)):
-    if slip_count_s[i] > 0:
-        # disl.load_network(config_file, select_seg=slip_seg_s[i])
-        disl.links = links_processed[slip_seg_s[i]]
-        rn_idx, inverse = np.unique(disl.links[:, :2].astype(int), return_inverse=True)
-        disl.rn = rn_processed[rn_idx]
-        disl.links[:, :2] = inverse.reshape(-1, 2)
+df_length = pd.concat(length, axis=1, keys=[int(casename.split('_')[1][2:]) for casename in casenames[:]])
+df_length = df_length.transpose().sort_index(axis=0)
 
-        config_slip_ca_file = os.path.join(config_dir, 'config_%s_slip%d.ca'%(casename, k))
-        if not os.path.exists(config_slip_ca_file):
-            ca_data = disl.write_network_ca(config_slip_ca_file, bmag=bmag)
-        config_slip_vtk_file = os.path.join(config_dir, 'config_%s_slip%d.vtk'%(casename, k))
-        btype = np.ones(disl.links.shape[0], dtype=int)*i
-        if not os.path.exists(config_slip_vtk_file):
-            dio.write_vtk(config_slip_vtk_file, disl.rn, disl.links, disl.cell, btype)
-        print('Slip system %d'%k, f'{slip_label_s[i]}: {slip_count_s[i]} segs, {slip_len_s[i]:.2f} b')
-        print('Slip system %d'%k, f'{slip_label_s[i]}: {slip_count_s[i]} segs, {slip_len_s[i]:.2f} b', file=f)
-        k += 1
+ax = df_length.plot(kind='line', marker='o', figsize=(8, 6))
+ax.set_yscale('log'); ax.set_yticklabels(['%d'%v for v in ax.get_yticks()])
+ax.set_xlabel('MD steps', fontsize=fs)
+ax.set_ylabel(r'Dislocation length (${\rm\mu}$m)', fontsize=fs)
+ax.set_xticks(df_length.index)
+ax.tick_params(direction='in', labelsize=fs-2)
+ax.legend(title='Dislocation type')
+figname = os.path.join('configs', 'dislocation_length.png')
+plt.savefig(figname, dpi=300)
+plt.close()
 
-f.close()
-plt.show()
+# %%
+# Save the subset of dislocation network
+
+# ind = 2
+
+# casename = casenames[ind]
+for ind, casename in enumerate(casenames[:]):
+    print(casename)
+    # save_ca_file = 'config_%s.ca'%casename
+    # rn, links = load_disl_network(casename, verbose=True, save_ca_file=save_ca_file, reduced=False)
+
+    for i, slip_type in enumerate(disltypes.keys()):
+        # save_ca_file = 'sliptype_%s.ca'%(slip_type.replace(' ', '_').replace(r'<', '[').replace(r'>', ']').replace(r'{', '(').replace(r'}', ')'))
+        save_ca_file = 'sliptype_%d.ca'%(i)
+        save_ca_segs = os.path.join('configs', 'config_%s'%casename, 'sliptype_%d.txt'%i)
+        print(save_ca_file, slip_type)
+        select_seg = group_list[ind][slip_type].index.to_numpy()
+        np.savetxt(save_ca_segs, select_seg, fmt='%d', header=slip_type)
+        rn, links = load_disl_network(casename, verbose=False, select_seg=select_seg, save_ca_file=save_ca_file, reduced=False)
+
+# %%
