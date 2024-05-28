@@ -38,7 +38,10 @@ slipstr = ''
 if args.slip is not None:
     config_dir = os.path.join('configs', 'config_%s'%casename)
     slipstr = '_slip%d'%args.slip
-    slip_type = 'sliptype_%d.txt'%args.slip
+    sliptype_file = 'sliptype_%d.txt'%args.slip
+    with open(os.path.join(config_dir, sliptype_file), 'r') as f:
+        sliptype = f.readline().split()[1:].join('_')
+    select_seg_slip = np.loadtxt(os.path.join(config_dir, 'select_seg_%s.txt'%sliptype), dtype=int)
 
 #%%
 # Define the elasticity properties of diamond
@@ -183,7 +186,7 @@ ax.plot(r_obs_cell[-1, -1, :, 0], r_obs_cell[-1, -1, :, 1], r_obs_cell[-1, -1, :
 nskip = 10
 ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
 ax.view_init(azim=90, elev=0)
-plt.show()
+plt.close()
 
 # %%-------------------------------------------------------
 # FILTER THE DISLOCATION SEGMENTS THAT ARE OUTSIDE THE OBSERVATION REGION
@@ -206,8 +209,13 @@ print('# of segments inside the observation region:', len(select_seg_inside))
 # SAVE THE DISLOCATION NETWORK INSIDE THE OBSERVATION REGION
 # -----------------------------------------------------------
 
+if args.slip is not None:
+    select_seg = np.intersect1d(select_seg_slip, select_seg_inside)
+else:
+    select_seg = select_seg_inside
+
 config_ca_inside_file = os.path.join('config_%s_inside.ca'%casename_scaled_hkl)
-rn, links = load_disl_network(casename, scale_cell=scale_cell, select_seg=select_seg_inside, save_ca_file=config_ca_inside_file)
+rn, links = load_disl_network(casename, scale_cell=scale_cell, select_seg=select_seg, save_ca_file=config_ca_inside_file)
 
 # %% --------------------------------------------------------
 # CALCULATE THE DFXM IMAGE
@@ -262,7 +270,7 @@ for iphi, phi in enumerate(phi_values):
     casename_scaled_phi_chi_hkl = casename_scaled + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
     print('#'*20 + ' Calculate and visualize the image')
     saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
-    print('saved displacement gradient at %s'%saved_Fg_file)
+    print('saved dispgrad at %s'%casename_scaled_phi_chi_hkl)
 
     model.d['phi'] = phi
     model.d['chi'] = chi
@@ -273,7 +281,7 @@ for iphi, phi in enumerate(phi_values):
     figax[0].savefig(saved_im_file, dpi=300, transparent=True)
     
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
-    plt.show()
+    plt.close()
 
 fig, ax = plt.subplots()
 ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
@@ -285,7 +293,7 @@ ax.set_ylabel('Intensity (a.u.)')
 saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rocking_DFXM.png')
 fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
 # plt.close()
-plt.show()
+plt.close()
 
 # %%
 # Calculating the rolling curve
@@ -302,7 +310,7 @@ for iphi, phi in enumerate(phi_values):
     casename_scaled_phi_chi_hkl = casename_scaled + '_phi%.5f'%chi + '_chi%.5f'%phi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
     print('#'*20 + ' Calculate and visualize the image')
     saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
-    print('saved displacement gradient at %s'%saved_Fg_file)
+    print('saved dispgrad at %s'%casename_scaled_phi_chi_hkl)
 
     model.d['phi'] = chi
     model.d['chi'] = phi
@@ -311,7 +319,7 @@ for iphi, phi in enumerate(phi_values):
     figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
     saved_im_file = os.path.join(im_path, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
     figax[0].savefig(saved_im_file, dpi=300, transparent=True)
-    plt.show()
+    plt.close()
 
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
 
@@ -324,7 +332,7 @@ ax.set_xlabel(r'Rolling $\chi$ (rad)')
 ax.set_ylabel('Intensity (a.u.)')
 saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rolling_DFXM.png')
 fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
-plt.show()
+plt.close()
 
 # %%
 # Calculating the mosaic space
@@ -341,7 +349,7 @@ for iphi, phi in np.ndenumerate(PHI):
     casename_scaled_phi_chi_hkl = casename_scaled + '_phi%.5f'%phi + '_chi%.5f'%chi + '_shift-%.2f-%.2f-%.2f'%tuple(shift) + '_hkl%d%d%d'%tuple(hkl)
     print('#'*20 + ' Calculate and visualize the image')
     saved_Fg_file = os.path.join(datapath, 'Fg_%s_DFXM.npz'%casename_scaled_hkl)
-    print('saved dispgrad at %s'%saved_Fg_file)
+    print('saved dispgrad at %s'%casename_scaled_phi_chi_hkl)
 
     model.d['phi'] = phi
     model.d['chi'] = chi
@@ -350,7 +358,7 @@ for iphi, phi in np.ndenumerate(PHI):
     figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
     saved_im_file = os.path.join(im_path, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
     figax[0].savefig(saved_im_file, dpi=300, transparent=True)
-    plt.show()
+    plt.close()
 
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
 
@@ -365,15 +373,16 @@ ax.set_ylabel(r'$\chi$ (rad)')
 ax.set_zlabel(r'$I_{\rm avg}$')
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_3D.png')
 fig.savefig(saved_mosaic_space, dpi=300, transparent=True)
-plt.show()
+plt.close()
 
 fig, ax = plt.subplots()
 ax.imshow(Iavg, cmap='viridis', extent=[phi_values.min(), phi_values.max(), chi_values.min(), chi_values.max()])
+ax.axis('equal')
 ax.set_xlabel(r'$\phi$ (rad)')
 ax.set_ylabel(r'$\chi$ (rad)')
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_2D.png')
 fig.savefig(saved_mosaic_space, dpi=300, transparent=True)
-plt.show()
+plt.close()
 
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_data.npz')
 np.savez_compressed(saved_mosaic_space, PHI=PHI, CHI=CHI, Imin=Imin, Imax=Imax, Iavg=Iavg)
