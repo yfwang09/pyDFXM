@@ -363,11 +363,19 @@ ax.plot_surface(PHI, CHI, Iavg, cmap='viridis')
 ax.set_xlabel(r'$\phi$ (rad)')
 ax.set_ylabel(r'$\chi$ (rad)')
 ax.set_zlabel(r'$I_{\rm avg}$')
-saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_DFXM.png')
+saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_3D.png')
 fig.savefig(saved_mosaic_space, dpi=300, transparent=True)
 plt.show()
 
-saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_DFXM.npz')
+fig, ax = plt.subplots()
+ax.imshow(Iavg, cmap='viridis', extent=[phi_values.min(), phi_values.max(), chi_values.min(), chi_values.max()])
+ax.set_xlabel(r'$\phi$ (rad)')
+ax.set_ylabel(r'$\chi$ (rad)')
+saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_2D.png')
+fig.savefig(saved_mosaic_space, dpi=300, transparent=True)
+plt.show()
+
+saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_data.npz')
 np.savez_compressed(saved_mosaic_space, PHI=PHI, CHI=CHI, Imin=Imin, Imax=Imax, Iavg=Iavg)
 
 # %%
