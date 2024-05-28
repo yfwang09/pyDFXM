@@ -31,15 +31,14 @@ disl = dgf.disl_network(input_dict)
 
 def load_disl_network(casename, verbose=False, 
         config_vtk='configs', select_seg=None,
-        save_ca_file=None, reduced=False,
+        save_ca_file=None, reduced=False, scale_cell=1.0
     ):
     config_file = os.path.join(config_vtk, 'config_%s.vtk'%casename)
     config_dir = os.path.join(config_vtk, 'config_%s'%casename)
     os.makedirs(config_dir, exist_ok=True)
 
-    disl.load_network(config_file, select_seg=select_seg)
+    disl.load_network(config_file, select_seg=select_seg, scale_cell=scale_cell)
     if save_ca_file is not None:
-        pbc = reduced
         disl.write_network_ca(os.path.join(config_dir, save_ca_file), bmag=bmag, reduced=reduced, pbc=True)
 
     if verbose:
