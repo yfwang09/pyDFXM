@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=dispgrad
-#SBATCH -n 30
+#SBATCH -n 32
 #SBATCH --mem 64000
 #SBATCH -t 7-00:00:00
 #SBATCH -p mc
@@ -18,6 +18,8 @@ do
         python3 test_diamond_DFXM_workflow.py --casename ${case} --scale_cell 0.5 --slip ${slip} -hkl 004 &
     done
     python3 test_diamond_DFXM_workflow.py --casename ${case} --scale_cell 1.0 -hkl 111 &
+    python3 test_diamond_DFXM_workflow.py --casename ${case} --scale_cell 0.5 -hkl 111 &
+    python3 test_diamond_DFXM_workflow.py --casename ${case} --scale_cell 1.0 -hkl 004 &
     python3 test_diamond_DFXM_workflow.py --casename ${case} --scale_cell 0.5 -hkl 004
     wait
 done

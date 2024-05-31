@@ -173,36 +173,37 @@ print(NNxyz)
 r_obs = np.load(saved_Fg_file)['r_obs'] * 1e6 # in the unit of um
 r_obs_cell = np.swapaxes(np.reshape(r_obs, NNxyz + (3, ), order='F'), 1, 2)
 
-ax.plot(r_obs_cell[:, 0, 0, 0], r_obs_cell[:, 0, 0, 1], r_obs_cell[:, 0, 0, 2], '-k')
-ax.plot(r_obs_cell[0, :, 0, 0], r_obs_cell[0, :, 0, 1], r_obs_cell[0, :, 0, 2], '-k')
-ax.plot(r_obs_cell[0, 0, :, 0], r_obs_cell[0, 0, :, 1], r_obs_cell[0, 0, :, 2], '-k')
-ax.plot(r_obs_cell[:, 0, -1, 0], r_obs_cell[:, 0, -1, 1], r_obs_cell[:, 0, -1, 2], '-k')
-ax.plot(r_obs_cell[0, :, -1, 0], r_obs_cell[0, :, -1, 1], r_obs_cell[0, :, -1, 2], '-k')
-ax.plot(r_obs_cell[0, -1, :, 0], r_obs_cell[0, -1, :, 1], r_obs_cell[0, -1, :, 2], '-k')
-ax.plot(r_obs_cell[:, -1, 0, 0], r_obs_cell[:, -1, 0, 1], r_obs_cell[:, -1, 0, 2], '-k')
-ax.plot(r_obs_cell[-1, :, 0, 0], r_obs_cell[-1, :, 0, 1], r_obs_cell[-1, :, 0, 2], '-k')
-ax.plot(r_obs_cell[-1, 0, :, 0], r_obs_cell[-1, 0, :, 1], r_obs_cell[-1, 0, :, 2], '-k')
-ax.plot(r_obs_cell[:, -1, -1, 0], r_obs_cell[:, -1, -1, 1], r_obs_cell[:, -1, -1, 2], '-k')
-ax.plot(r_obs_cell[-1, :, -1, 0], r_obs_cell[-1, :, -1, 1], r_obs_cell[-1, :, -1, 2], '-k')
-ax.plot(r_obs_cell[-1, -1, :, 0], r_obs_cell[-1, -1, :, 1], r_obs_cell[-1, -1, :, 2], '-k')
+ax.plot(r_obs_cell[:, 0, 0, 0], r_obs_cell[:, 0, 0, 1], r_obs_cell[:, 0, 0, 2], '-C0')
+ax.plot(r_obs_cell[0, :, 0, 0], r_obs_cell[0, :, 0, 1], r_obs_cell[0, :, 0, 2], '-C1')
+ax.plot(r_obs_cell[0, 0, :, 0], r_obs_cell[0, 0, :, 1], r_obs_cell[0, 0, :, 2], '-C2')
+# ax.plot(r_obs_cell[:, 0, -1, 0], r_obs_cell[:, 0, -1, 1], r_obs_cell[:, 0, -1, 2], '-k')
+# ax.plot(r_obs_cell[0, :, -1, 0], r_obs_cell[0, :, -1, 1], r_obs_cell[0, :, -1, 2], '-k')
+# ax.plot(r_obs_cell[0, -1, :, 0], r_obs_cell[0, -1, :, 1], r_obs_cell[0, -1, :, 2], '-k')
+# ax.plot(r_obs_cell[:, -1, 0, 0], r_obs_cell[:, -1, 0, 1], r_obs_cell[:, -1, 0, 2], '-k')
+# ax.plot(r_obs_cell[-1, :, 0, 0], r_obs_cell[-1, :, 0, 1], r_obs_cell[-1, :, 0, 2], '-k')
+# ax.plot(r_obs_cell[-1, 0, :, 0], r_obs_cell[-1, 0, :, 1], r_obs_cell[-1, 0, :, 2], '-k')
+# ax.plot(r_obs_cell[:, -1, -1, 0], r_obs_cell[:, -1, -1, 1], r_obs_cell[:, -1, -1, 2], '-k')
+# ax.plot(r_obs_cell[-1, :, -1, 0], r_obs_cell[-1, :, -1, 1], r_obs_cell[-1, :, -1, 2], '-k')
+# ax.plot(r_obs_cell[-1, -1, :, 0], r_obs_cell[-1, -1, :, 1], r_obs_cell[-1, -1, :, 2], '-k')
+
 
 nskip = 10
 ax.plot(r_obs[::nskip, 0], r_obs[::nskip, 1], r_obs[::nskip, 2],  'C0.', markersize=0.01)
-ax.view_init(azim=90, elev=0)
-plt.close()
-
-os.remove(saved_Fg_file)
+# ax.view_init(azim=90, elev=0)
+plt.show()
 
 # %%-------------------------------------------------------
 # FILTER THE DISLOCATION SEGMENTS THAT ARE OUTSIDE THE OBSERVATION REGION
 #---------------------------------------------------------
 
+r_obs = np.load(saved_Fg_file)['r_obs'] # in the unit of m
+r_obs_cell = np.swapaxes(np.reshape(r_obs, NNxyz + (3, ), order='F'), 1, 2)
 obs_cell = np.transpose([
     r_obs_cell[-1, 0, 0, :] - r_obs_cell[0, 0, 0, :], 
     r_obs_cell[0, -1, 0, :] - r_obs_cell[0, 0, 0, :],
     r_obs_cell[0, 0, -1, :] - r_obs_cell[0, 0, 0, :]
-])*1e-6                      # in unit of m
-print(obs_cell)
+])                      # in unit of m
+print(obs_cell*1e6, 'um')
 rn, links = load_disl_network(casename, scale_cell=scale_cell)
 nsegs = disl.links.shape[0]
 select_seg_inside = []
@@ -215,6 +216,8 @@ for ilink in range(nsegs):
     if np.all(np.abs(s1) < 0.51) or np.all(np.abs(s2) < 0.51):
         select_seg_inside.append(ilink)
 print('# of segments inside the observation region:', len(select_seg_inside))
+
+os.remove(saved_Fg_file)
 
 # %% --------------------------------------------------------
 # SAVE THE DISLOCATION NETWORK INSIDE THE OBSERVATION REGION
@@ -262,12 +265,14 @@ figax = vis.visualize_im_qi(forward_dict, im, None, rulers) #, vlim_im=[0, 200])
 # %%
 # save r_obs into xyz file
 
-r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz'%casename_noslip_scaled_hkl)
+r_obs_xyz_file = os.path.join(datapath, 'r_obs_%s.xyz.gz'%casename_noslip_scaled_hkl)
 im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
 im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
 r_obs = r_obs_cell.reshape((-1, 3))
+lat_str = '"%s %s %s %s %s %s %s %s %s"'%tuple(obs_cell.T.flatten()/scale_cell/1e-10)
+org_str = '"%s %s %s"'%tuple(r_obs_cell[0,0,0,:]/scale_cell/1e-10)
 if not os.path.exists(r_obs_xyz_file):
-    dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=1e10)
+    dio.write_xyz(r_obs_xyz_file, r_obs, props=im_obs, scale=(1/scale_cell)/1e-10, parameters={'Lattice': lat_str, 'Origin': org_str, 'Properties': 'pos:R:3:Intensity:R:1', 'pbc': '"F F F"'})
 
 # %%
 # Calculating the rocking curve
@@ -287,29 +292,48 @@ for iphi, phi in enumerate(phi_values):
     model.d['phi'] = phi
     model.d['chi'] = chi
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
-    im, ql, rulers = model.forward(Fg_func, timeit=True)
-    figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
-    saved_im_file = os.path.join(im_path, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
-    figax[0].savefig(saved_im_file, dpi=300, transparent=True)
+    saved_im_file = os.path.join(im_path, 'im_%s_DFXM'%casename_scaled_phi_chi_hkl)
+    if os.path.exists(saved_im_file+'.npz'):
+        rawdata = np.load(saved_im_file+'.npz', allow_pickle=True)
+        im, ql, rulers = rawdata['im'], rawdata['ql'], rawdata['rulers']
+        print('load im_file', saved_im_file+'.npz')
+    else:
+        im, ql, rulers = model.forward(Fg_func, timeit=True)
+        print('Calculate im')
+    if not os.path.exists(saved_im_file+'.png'):
+        figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
+        print('save', saved_im_file+'.png')
+        figax[0].savefig(saved_im_file+'.png', dpi=300, transparent=True)
+        plt.close()
+    if not os.path.exists(saved_im_file+'.xyz.gz'):
+        im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
+        # im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
+        # r_obs = r_obs_cell.reshape((-1, 3))
+        Nz = model.d['Npixels'][2]
+        r_obs = r_obs_cell[:, :, Nz-1:Nz+1].reshape((-1, 3))
+        im_obs = np.tile(im_Nobs, (1, 1, 2)).reshape((-1, 1))
+        print('save', saved_im_file+'.xyz.gz')
+        dio.write_xyz(saved_im_file+'.xyz.gz', r_obs, props=im_obs, scale=(1/scale_cell)/1e-10, parameters={'Lattice': lat_str, 'Origin': org_str, 'Properties': 'pos:R:3:Intensity:R:1', 'pbc': '"F F F"'})
     
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
-    plt.close()
 
-fig, ax = plt.subplots()
-ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
-ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
-ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
-ax.legend()
-ax.set_xlabel(r'Rocking $\phi$ (rad)')
-ax.set_ylabel('Intensity (a.u.)')
 saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rocking_DFXM.png')
-fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
-plt.close()
+
+if not os.path.exists(saved_rocking_curve):
+    fig, ax = plt.subplots()
+    ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
+    ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
+    ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
+    ax.legend()
+    ax.set_xlabel(r'Rocking $\phi$ (rad)')
+    ax.set_ylabel('Intensity (a.u.)')
+    fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
+    plt.close()
 
 # %%
 # Calculating the rolling curve
 
-phi_values = np.arange(-0.004, 0.00401, 0.0001)#.round(4)
+phi_values = np.arange(-0.002, 0.00201, 0.0001)#.round(4)
 chi = 0.0
 Imin = np.empty_like(phi_values)
 Imax = np.empty_like(phi_values)
@@ -326,24 +350,43 @@ for iphi, phi in enumerate(phi_values):
     model.d['phi'] = chi
     model.d['chi'] = phi
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
-    im, ql, rulers = model.forward(Fg_func, timeit=True)
-    figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
-    saved_im_file = os.path.join(im_path, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
-    figax[0].savefig(saved_im_file, dpi=300, transparent=True)
-    plt.close()
+    saved_im_file = os.path.join(im_path, 'im_%s_DFXM'%casename_scaled_phi_chi_hkl)
+    if os.path.exists(saved_im_file+'.npz'):
+        rawdata = np.load(saved_im_file+'.npz', allow_pickle=True)
+        im, ql, rulers = rawdata['im'], rawdata['ql'], rawdata['rulers']
+        print('load im_file', saved_im_file+'.npz')
+    else:
+        im, ql, rulers = model.forward(Fg_func, timeit=True)
+        print('Calculate im')
+    if not os.path.exists(saved_im_file+'.png'):
+        figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
+        print('save', saved_im_file+'.png')
+        figax[0].savefig(saved_im_file+'.png', dpi=300, transparent=True)
+        plt.close()
+    if not os.path.exists(saved_im_file+'.xyz.gz'):
+        im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
+        # im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
+        # r_obs = r_obs_cell.reshape((-1, 3))
+        Nz = model.d['Npixels'][2]
+        r_obs = r_obs_cell[:, :, Nz-1:Nz+1].reshape((-1, 3))
+        im_obs = np.tile(im_Nobs, (1, 1, 2)).reshape((-1, 1))
+        print('save', saved_im_file+'.xyz.gz')
+        dio.write_xyz(saved_im_file+'.xyz.gz', r_obs, props=im_obs, scale=(1/scale_cell)/1e-10, parameters={'Lattice': lat_str, 'Origin': org_str, 'Properties': 'pos:R:3:Intensity:R:1', 'pbc': '"F F F"'})
 
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
 
-fig, ax = plt.subplots()
-ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
-ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
-ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
-ax.legend()
-ax.set_xlabel(r'Rolling $\chi$ (rad)')
-ax.set_ylabel('Intensity (a.u.)')
-saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rolling_DFXM.png')
-fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
-plt.close()
+saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rocking_DFXM.png')
+
+if not os.path.exists(saved_rocking_curve):
+    fig, ax = plt.subplots()
+    ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
+    ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
+    ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
+    ax.legend()
+    ax.set_xlabel(r'Rolling $\chi$ (rad)')
+    ax.set_ylabel('Intensity (a.u.)')
+    fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
+    plt.close()
 
 # %%
 # Calculating the mosaic space
@@ -365,14 +408,28 @@ for iphi, phi in np.ndenumerate(PHI):
     model.d['phi'] = phi
     model.d['chi'] = chi
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
-    im, ql, rulers = model.forward(Fg_func, timeit=True)
-    figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
-    saved_im_file = os.path.join(im_path, 'im_%s_DFXM.png'%casename_scaled_phi_chi_hkl)
-    figax[0].savefig(saved_im_file, dpi=300, transparent=True)
-    plt.close()
-    # os.makedirs(os.path.join(im_path, 'npz_data'))
-    saved_im_data = os.path.join(im_path, 'im_%s_DFXM.npz'%casename_scaled_phi_chi_hkl)
-    np.savez_compressed(saved_im_data, im=im, ql=ql, rulers=rulers)
+    saved_im_file = os.path.join(im_path, 'im_%s_DFXM'%casename_scaled_phi_chi_hkl)
+    if os.path.exists(saved_im_file+'.npz'):
+        rawdata = np.load(saved_im_file+'.npz', allow_pickle=True)
+        im, ql, rulers = rawdata['im'], rawdata['ql'], rawdata['rulers']
+        print('load im_file', saved_im_file+'.npz')
+    else:
+        im, ql, rulers = model.forward(Fg_func, timeit=True)
+        print('Calculate im')
+    if not os.path.exists(saved_im_file+'.png'):
+        figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
+        print('save', saved_im_file+'.png')
+        figax[0].savefig(saved_im_file+'.png', dpi=300, transparent=True)
+        plt.close()
+    if not os.path.exists(saved_im_file+'.xyz.gz'):
+        im_Nobs = np.repeat(np.repeat(im, Nobs, axis=0), Nobs, axis=1)[:,:,np.newaxis]
+        # im_obs = np.tile(im_Nobs, (1, 1, model.d['Npixels'][2]*Nobs)).reshape((-1, 1))
+        # r_obs = r_obs_cell.reshape((-1, 3))
+        Nz = model.d['Npixels'][2]
+        r_obs = r_obs_cell[:, :, Nz-1:Nz+1].reshape((-1, 3))
+        im_obs = np.tile(im_Nobs, (1, 1, 2)).reshape((-1, 1))
+        print('save', saved_im_file+'.xyz.gz')
+        dio.write_xyz(saved_im_file+'.xyz.gz', r_obs, props=im_obs, scale=(1/scale_cell)/1e-10, parameters={'Lattice': lat_str, 'Origin': org_str, 'Properties': 'pos:R:3:Intensity:R:1', 'pbc': '"F F F"'})
 
     Imin[iphi], Imax[iphi], Iavg[iphi] = im.min(), im.max(), im.mean()
 

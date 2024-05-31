@@ -439,7 +439,7 @@ def write_ca(filename, rn, links, cell, origin=(0, 0, 0), bmag=1):
             print('%.10f %.10f %.10f'%tuple(rn[links[i, 1].astype(int), :]), file=f)
     return rn, links, cell
 
-def write_xyz(fileName, r, props=None, scale=1, ParticleTypes=None):
+def write_xyz(fileName, r, parameters={}, props=None, scale=1, ParticleTypes=None):
     """ Write XYZ file
     """
     nAtoms = r.shape[0]
@@ -448,7 +448,11 @@ def write_xyz(fileName, r, props=None, scale=1, ParticleTypes=None):
         values = np.hstack([values, props])
     if ParticleTypes is None:
         ParticleTypes = 'O'
-    np.savetxt(fileName, values, header='%d\nObservation points'%nAtoms, comments='')
+    header_list = []
+    for key, value in parameters.items():
+        header_list.append('%s=%s'%(key, value))
+    header = '%d\n%s'%(nAtoms, ' '.join(header_list))
+    np.savetxt(fileName, values, header=header, comments='')
 
     # with open(fileName, 'w') as f:
     #     print(nAtoms, file=f)
