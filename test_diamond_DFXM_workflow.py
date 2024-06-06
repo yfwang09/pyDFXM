@@ -18,7 +18,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='DFXM forward calculation for diamond DDD configurations')
 parser.add_argument('--casename', '-n', type=str, default='diamond_MD20000_189x100x100', help='The name of the DDD configuration')
-parser.add_argument('--scale_cell', '-sc', type=float, default=1, help='Scale the cell side by this scale (default = 1)')
+parser.add_argument('--scale_cell', '-sc', type=float, default=0.5, help='Scale the cell side by this scale (default = 1)')
 parser.add_argument('--poisson', '-nu', type=float, default=0.200, help="Poisson's ratio")
 parser.add_argument('--bmag', '-b', type=float, default=2.522e-10, help="Burger's magnitude (m)")
 parser.add_argument('--diffraction_plane', '-hkl', type=str, default='111', help='Diffraction plane of diamond (004 or 111)')
@@ -319,16 +319,22 @@ for iphi, phi in enumerate(phi_values):
 
 saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rocking_DFXM.png')
 
+fig, ax = plt.subplots()
+ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
+ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
+ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
+ax.legend()
+ax.set_xlabel(r'Rocking $\phi$ (rad)')
+ax.set_ylabel('Intensity (a.u.)')
+
+xticks = ax.get_xticks()
+ax.set_xticklabels(np.multiply(1000, xticks))
+ax.set_xlabel(r'Rocking $\phi\times10^3$ (rad)')
+
 if not os.path.exists(saved_rocking_curve):
-    fig, ax = plt.subplots()
-    ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
-    ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
-    ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
-    ax.legend()
-    ax.set_xlabel(r'Rocking $\phi$ (rad)')
-    ax.set_ylabel('Intensity (a.u.)')
     fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
-    plt.close()
+plt.show()
+
 
 # %%
 # Calculating the rolling curve
@@ -377,16 +383,21 @@ for iphi, phi in enumerate(phi_values):
 
 saved_rocking_curve = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_rocking_DFXM.png')
 
+fig, ax = plt.subplots()
+ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
+ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
+ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
+ax.legend()
+ax.set_xlabel(r'Rolling $\chi$ (rad)')
+ax.set_ylabel('Intensity (a.u.)')
+
+xticks = ax.get_xticks()
+ax.set_xticklabels(np.multiply(1000, xticks))
+ax.set_xlabel(r'Rolling $\chi\times10^3$ (rad)')
+
 if not os.path.exists(saved_rocking_curve):
-    fig, ax = plt.subplots()
-    ax.plot(phi_values, Imax, label=r'$I_{\rm max}$')
-    ax.plot(phi_values, Imin, label=r'$I_{\rm min}$')
-    ax.plot(phi_values, Iavg, label=r'$I_{\rm avg}$')
-    ax.legend()
-    ax.set_xlabel(r'Rolling $\chi$ (rad)')
-    ax.set_ylabel('Intensity (a.u.)')
     fig.savefig(saved_rocking_curve, dpi=300, transparent=True)
-    plt.close()
+plt.show()
 
 # %%
 # Calculating the mosaic space
@@ -415,7 +426,8 @@ for iphi, phi in np.ndenumerate(PHI):
         print('load im_file', saved_im_file+'.npz')
     else:
         im, ql, rulers = model.forward(Fg_func, timeit=True)
-        print('Calculate im')
+        np.savez_compressed(saved_im_file, im=im, ql=ql, rulers=rulers)
+        print('Calculate and save im_file', saved_im_file+'.npz')
     if not os.path.exists(saved_im_file+'.png'):
         figax = vis.visualize_im_qi(forward_dict, im, None, rulers)
         print('save', saved_im_file+'.png')
@@ -439,24 +451,24 @@ for iphi, phi in np.ndenumerate(PHI):
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 ax.plot_surface(PHI*1000, CHI*1000, Iavg, cmap='viridis')
-ax.set_xlabel(r'$\phi$ ($\times10^3$ rad)')
-ax.set_ylabel(r'$\chi$ ($\times10^3$ rad)')
+ax.set_xlabel(r'$\phi\times10^3$ (rad)')
+ax.set_ylabel(r'$\chi\times10^3$ (rad)')
 ax.set_zlabel(r'$I_{\rm avg}$')
 lims = (np.min(np.stack([PHI, CHI]))*1000, np.max(np.stack([PHI, CHI]))*1000)
 ax.set_xlim(*lims)
 ax.set_ylim(*lims)
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_3D.png')
 fig.savefig(saved_mosaic_space, dpi=300, transparent=True)
-plt.close()
+plt.show()
 
 fig, ax = plt.subplots()
 ax.imshow(Iavg, cmap='viridis', extent=np.multiply(1000, [phi_values.min(), phi_values.max(), chi_values.min(), chi_values.max()]))
 ax.axis('equal')
-ax.set_xlabel(r'$\phi$ ($\times10^3$ rad)')
-ax.set_ylabel(r'$\chi$ ($\times10^3$ rad)')
+ax.set_xlabel(r'$\phi\times10^3$ (rad)')
+ax.set_ylabel(r'$\chi\times10^3$ (rad)')
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_2D.png')
 fig.savefig(saved_mosaic_space, dpi=300, transparent=True)
-plt.close()
+plt.show()
 
 saved_mosaic_space = os.path.join(im_path, 'im_%s'%(casename_scaled)+'_hkl%d%d%d'%tuple(hkl)+'_mosaic_data.npz')
 np.savez_compressed(saved_mosaic_space, PHI=PHI, CHI=CHI, Imin=Imin, Imax=Imax, Iavg=Iavg)
