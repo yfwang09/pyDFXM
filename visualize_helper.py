@@ -212,7 +212,7 @@ def visualize_res_fn_slice_z(d, Res_qi, plot_2d=True, plot_3d=True, show=True):
             plt.show()
     return figax2d, figax3d
 
-def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=[None, None], deg=False, unit='m', show=True):
+def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=[None, None], deg=False, unit='m', cbar=True, show=True):
     ''' Visualize the simulated image and the reciprocal space wave vectors
 
     Parameters
@@ -275,8 +275,9 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
             ax.set_title(r'$\phi = %.4f$, $\chi = %.4f$'%(forward_dict['phi'], forward_dict['chi']), loc='center')
         ax.set_xlabel("x' (%s)"%unit)
         ax.set_ylabel("y' (%s)"%unit)
-        cax = fig.colorbar(imax, ax=ax, orientation='horizontal')
-        cax.set_label('Intensity (a.u.)')
+        if cbar:
+            cax = fig.colorbar(imax, ax=ax, orientation='horizontal')
+            cax.set_label('Intensity (a.u.)')
         fig_im, ax_im = fig, ax
     else:
         fig_im, ax_im = None, None
