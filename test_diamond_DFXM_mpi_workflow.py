@@ -27,7 +27,7 @@ parser.add_argument('--rolling', '-chi', type=float, default=0, help='Rolling an
 parser.add_argument('--shift', '-sh', type=float, default=[0, 0, 0], nargs='+', help='Shift of the observation points (um)')
 parser.add_argument('--cutoff', '-c', type=float, default=0.51, help='Cutoff distance for the observation region (in scaled coordinates)')
 parser.add_argument('--slip', '-s', type=int, default=None, help='slip system')
-args = parser.parse_args()
+args, unknown = parser.parse_known_args()
 
 # args.scale_cell = 0.25
 
@@ -87,12 +87,40 @@ if rank == 0:
         hkl = [0, 0, 1]                     # hkl for diamond-(004) plane
         x_c = [1, 0, 0]                     # x_c for diamond-(004) plane
         y_c = [0, 1, 0]                     # y_c for diamond-(004) plane
+    elif diffraction_plane == '400':
+        two_theta = 48.16                   # 2theta for diamond-(004) (deg)
+        hkl = [1, 0, 0]                     # hkl for diamond-(004) plane
+        x_c = [0, 1, 0]                     # x_c for diamond-(004) plane
+        y_c = [0, 0, 1]                     # y_c for diamond-(004) plane
+    elif diffraction_plane == '040':
+        two_theta = 48.16                   # 2theta for diamond-(004) (deg)
+        hkl = [0, 1, 0]                     # hkl for diamond-(004) plane
+        x_c = [0, 0, 1]                     # x_c for diamond-(004) plane
+        y_c = [1, 0, 0]                     # y_c for diamond-(004) plane
     elif diffraction_plane == '111':
         # Diffraction plane of diamond (111)
         two_theta = 20.06                   # 2theta for diamond-(111) (deg)
         hkl = [1, 1, 1]                     # hkl for diamond-(111) plane
         x_c = [1, 1, -2]                    # x_c for diamond-(111) plane
         y_c = [-1, 1, 0]                    # y_c for diamond-(111) plane
+    elif diffraction_plane == '11-1':
+        # Diffraction plane of diamond (111)
+        two_theta = 20.06                   # 2theta for diamond-(111) (deg)
+        hkl = [1, 1,-1]                     # hkl for diamond-(111) plane
+        x_c = [2,-1, 1]                     # x_c for diamond-(111) plane
+        y_c = [0, 1, 1]                     # y_c for diamond-(111) plane
+    elif diffraction_plane == '1-11':
+        # Diffraction plane of diamond (111)
+        two_theta = 20.06                   # 2theta for diamond-(111) (deg)
+        hkl = [1,-1, 1]                     # hkl for diamond-(111) plane
+        x_c = [2, 1, -1]                    # x_c for diamond-(111) plane
+        y_c = [0, 1, 1]                     # y_c for diamond-(111) plane
+    elif diffraction_plane == '-111':
+        # Diffraction plane of diamond (111)
+        two_theta = 20.06                   # 2theta for diamond-(111) (deg)
+        hkl = [-1, 1, 1]                    # hkl for diamond-(111) plane
+        x_c = [ 2, 1, 1]                    # x_c for diamond-(111) plane
+        y_c = [0, 1, -1]                    # y_c for diamond-(111) plane
     else:
         raise ValueError('Unknown diffraction plane: %s'%diffraction_plane)
 
