@@ -10,7 +10,7 @@ ml system viz devel git python/3.9.0 py-numpy/1.20.3_py39 py-scipy/1.6.3_py39 py
 
 for case in diamond_MD20000_189x100x100 diamond_MD50000_174x101x100 diamond_MD100000_149x100x101 diamond_MD150000_131x100x104 diamond_MD200000_114x100x107 diamond_MD0_200x100x100 
 do
-    for hkl in 400 040 004 111 -111 1-11 11-1
+    for hkl in 400 040 -111 1-11 11-1 004 111
     do
         mpirun -np 20 python3 test_diamond_DFXM_mpi_workflow.py --casename ${case} --scale_cell 0.5 -phi 0 -chi 0 -hkl ${hkl}
     done
