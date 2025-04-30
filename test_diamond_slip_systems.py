@@ -182,17 +182,19 @@ casenames = [
 disltypes = {
     r'<110>{111} full': # 'full dislocation': 
         ['bnorm == 2 and (nnorm == 3 or angle < 5)', ''],
-    r'<111> frank':
+    # r'1/2<110> & 1/6<112> {111} glissile': # 'full dislocation': 
+        # ['(bnorm == 2 and (nnorm == 3 or angle < 5)) or bnorm == 6', ''],
+    r'1/3<111> vacancy loops':
         ['bnorm == 3', ''],
-    # '1/2<110> jog': # 'full jog':
-    #     ['bnorm == 2 and nnorm != 3', ''],
+    # r'1/2<110> dislocation jogs': # 'full jog':
+    #     ['bnorm == 2 and nnorm != 3 and angle >= 5', ''],
     r'<011>{100}': # 'full jog1':
         ['bnorm == 2 and nnorm == 1 and angle >= 5', ''],
     r'<110>{110}': # 'full jog2':
         ['bnorm == 2 and nnorm == 2 and angle >= 5', ''],
     # r'<110>{311}': # 'full jog3':
     #     ['bnorm == 2 and nnorm == 11', ''],
-    r'<110> full jog':
+    r'<110> jog':
         ['bnorm == 2 and (nnorm > 3 and angle >= 5)', ''],
     # 'stair rod1':
     #     ['bnorm == 1', 'bname'],
@@ -206,20 +208,37 @@ disltypes = {
     #     ['bnorm == 6 and nnorm != 3', ''],
     'other':
         ['bnorm != 2 and bnorm != 3 and bnorm != 6', ''],
+    '1/2[  1  0 -1]':
+        ['bnorm == 2 and bname == "1/2[  1  0 -1]"', ''],
+    '1/2[  0  1  1]':
+        ['bnorm == 2 and bname == "1/2[  0  1  1]"', ''],
+    '1/2[  0  1 -1]':
+        ['bnorm == 2 and bname == "1/2[  0  1 -1]"', ''],
+    '1/2[  1 -1  0]':
+        ['bnorm == 2 and bname == "1/2[  1 -1  0]"', ''],
+    '1/2[  1  1  0]':
+        ['bnorm == 2 and bname == "1/2[  1  1  0]"', ''],
+    '1/2[  1  0  1]':
+        ['bnorm == 2 and bname == "1/2[  1  0  1]"', ''],
 }
 
 verbose = True
-# fig, ax = plt.subplots(figsize=(8, 6))
-fs = 16
+figsize = (4, 3)
+fs = 14
 
 group_list = []
 counts = []
 length = []
+volume = []
 
-for icase, casename in enumerate(casenames[:]):
+for icase, casename in enumerate(casenames[-1:]):
     if verbose:
         print(casename)
     rn, links = load_disl_network(casename)
+    cell = disl.cell * bmag * 1e6 # um
+    # print(cell)
+    print('Volume: %.4f um^3'%np.linalg.det(cell))
+    volume.append(np.linalg.det(cell))
     df, disl_reduced = slip_system_analysis(disl, verbose=True)
 
     groups = slip_system_stats(df, verbose=verbose, conds=disltypes)
@@ -233,7 +252,7 @@ for icase, casename in enumerate(casenames[:]):
     hist_dict = {'bins': bins, 'weights': sorted['rnorm']*bmag*1e6}
 
     # hist = sorted['disltype'].hist(ax=ax, xrot=90, rwidth=0.5, align='left', grid=False, alpha=0.5, label=casename.split('_')[1], **hist_dict)
-    axs = sorted.hist('angle', by='disltype', bins=15, alpha=0.5, figsize=(12, 9), sharex=True, layout=(3, 3))
+    axs = sorted.hist('angle', by='disltype', bins=15, alpha=0.5, figsize=figsize, sharex=True, layout=(5, 3))
 
     for ax in axs.flatten():
         ax.set_xlabel('Angle (degree)')
@@ -267,19 +286,33 @@ for icase, casename in enumerate(casenames[:]):
 df_counts = pd.concat(counts, axis=1, keys=[int(casename.split('_')[1][2:]) for casename in casenames[:]])
 df_counts = df_counts.transpose().sort_index(axis=0)
 
-df_length = pd.concat(length, axis=1, keys=[int(casename.split('_')[1][2:]) for casename in casenames[:]])
-df_length = df_length.transpose().sort_index(axis=0)
 
-ax = df_length.plot(kind='line', marker='o', figsize=(8, 6))
-ax.set_yscale('log'); ax.set_yticklabels(['%d'%v for v in ax.get_yticks()])
-ax.set_xlabel('MD steps', fontsize=fs)
-ax.set_ylabel(r'Dislocation length (${\rm\mu}$m)', fontsize=fs)
-ax.set_xticks(df_length.index)
+# df_length = pd.concat(length, axis=1, keys=[int(casename.split('_')[1][2:]) for casename in casenames[:]])
+# print(len(length), len(volume))
+density = [length[i]/volume[i]*1e12 for i in range(len(length))]
+df_density = pd.concat(density, axis=1, keys=[int(casename.split('_')[1][2:]) for casename in casenames[:]])
+# df_length = df_length.transpose().sort_index(axis=0)
+df_density = df_density.transpose().sort_index(axis=0)
+
+# ax = df_length.plot(kind='line', marker='o', figsize=(8, 6))
+# ax = df_density.plot(kind='line', marker='o', figsize=figsize)
+fig, ax = plt.subplots(figsize=figsize, tight_layout=True)
+for i, column in enumerate(df_density.columns):
+    ax.plot(df_density.index/1000, df_density[column].values)
+    print(column)
+    # ax.text(df_density.index[-1]/1000, df_density[column].values[-1], column, fontsize=fs-2, va='center', ha='left')
+
+# ax.set_xlim(0, )
+ax.set_yscale('log'); #ax.set_yticklabels(['%d'%v for v in ax.get_yticks()])
+ax.set_xlabel('time (ps)', fontsize=fs)
+# ax.set_ylabel(r'Dislocation length (${\rm\mu}$m)', fontsize=fs)
+ax.set_ylabel(r'Density (${\rm m^{-2}}$)', fontsize=fs)
+ax.set_xticks(df_density.index/1000)
 ax.tick_params(direction='in', labelsize=fs-2)
-ax.legend(title='Dislocation type')
-figname = os.path.join('configs', 'dislocation_length.png')
-plt.savefig(figname, dpi=300)
-plt.close()
+# ax.legend(title='Dislocation type')
+figname = os.path.join('configs', 'dislocation_length.svg')
+# plt.savefig(figname, dpi=300, transparent=True)
+plt.show()
 
 # %%
 # Save the subset of dislocation network
@@ -287,7 +320,7 @@ plt.close()
 # ind = 2
 
 # casename = casenames[ind]
-for ind, casename in enumerate(casenames[:]):
+for ind, casename in enumerate(casenames[-1:]):
     print(casename)
     # save_ca_file = 'config_%s.ca'%casename
     # rn, links = load_disl_network(casename, verbose=True, save_ca_file=save_ca_file, reduced=False)

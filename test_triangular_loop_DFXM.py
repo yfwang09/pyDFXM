@@ -170,6 +170,7 @@ im_max = []
 im_min = []
 im_avg = []
 phi_values = np.arange(-0.001, 0.00101, 0.0001).round(4)
+# phi_values = [0.0, 0.0004]
 for model.d['phi'] in phi_values:
     print('phi = %.4f'%model.d['phi'])
     Fg_func = lambda x, y, z: disl.Fg(x, y, z, filename=saved_Fg_file)
@@ -179,14 +180,14 @@ for model.d['phi'] in phi_values:
     im_avg.append(np.mean(im))
 
     # Visualize the simulated image
-    # if model.d['phi'] == 0.001:
-    #     vlim_im = [0, 1.48]
-    # else:
-    #     vlim_im = [None, None]
-    vlim_im = [0, 1]
+    if model.d['phi'] == 0.0:
+        vlim_im = [116, 132]
+    else:
+        vlim_im = [0, 10]
+    # vlim_im = [0, 1]
     vlim_im = [None, None]
     # figax = vis.visualize_im_qi(forward_dict, im/im_max_strong, None, rulers, show=False, vlim_im=vlim_im, cbar=False, unit='um')
-    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False, vlim_im=vlim_im, unit='um') #, cbar=False)
+    figax = vis.visualize_im_qi(forward_dict, im, None, rulers, show=False, vlim_im=vlim_im, unit='um', cbar=False, cmap='gray')
     figax[0].savefig(os.path.join(datapath, 'rocking_curve_phi%.4f.svg'%model.d['phi']), transparent=True)
     plt.show()
     # plt.close()
