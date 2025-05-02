@@ -305,7 +305,7 @@ class DFXM_forward():
             Res_qi = self.Res_qi
 
         # Define the grid of points in the lab system (xl, yl, zl)
-        theta = theta_0 + TwoDeltaTheta
+        theta = theta_0 + TwoDeltaTheta/2
         yl_start = -psize*Ny/2 + psize/(2*Nsub) # start in yl direction, in units of m, centered at 0
         yl_step = psize/Nsub
         xl_start = ( -psize*Nx/2 + psize/(2*Nsub) )/np.tan(2*theta) # start in xl direction, in m, for zl=0

@@ -301,8 +301,8 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
             ax = axs[i]
             imax = ax.imshow(qi[:,:,ind_z,i].T, extent=[xl.min(), xl.max(), yl.min(), yl.max()], vmin=vmin, vmax=vmax)
             ax.set_title(r'$q^{\ell}_{%s}$, (x, y)-plane at z = 0'%(subs[i]), loc='right')
-            ax.set_ylabel('$y_{\ell}$ (%s)'%unit_str)
-        ax.set_xlabel('$x_{\ell}$ (%s)'%unit_str)
+            ax.set_ylabel(r'$y_{\ell}$ (%s)'%unit_str)
+        ax.set_xlabel(r'$x_{\ell}$ (%s)'%unit_str)
         # create a shared colorbar on the right side
         fig.subplots_adjust(right=0.99)
         y0, y1 = axs[2].get_position().y0, axs[0].get_position().y1
@@ -322,8 +322,8 @@ def visualize_im_qi(forward_dict, im, qi, rulers, vlim_im=[None, None], vlim_qi=
             ax = axs[i]
             imax = ax.imshow(qi[:,ind_y,:,i].T, extent=[xl.min(), xl.max(), zl.min(), zl.max()], vmin=vmin, vmax=vmax)
             ax.set_title(r'$q^{\ell}_{%s}$, (x, z)-plane at y = 0'%(subs[i]), loc='right')
-            ax.set_ylabel('$z_{\ell}$ (%s)'%unit_str)
-        ax.set_xlabel('$x_{\ell}$ (%s)'%unit_str)
+            ax.set_ylabel(r'$z_{\ell}$ (%s)'%unit_str)
+        ax.set_xlabel(r'$x_{\ell}$ (%s)'%unit_str)
         # create a shared colorbar on the right side
         fig.subplots_adjust(right=0.75)
         y0, y1 = axs[2].get_position().y0, axs[0].get_position().y1
