@@ -271,11 +271,18 @@ print('line01 shape:', line01.shape)
 
 zl = zl_start + np.arange(NNz)*zl_step # (NNz, )
 
+# blue plane (x0,y0,z0)
+# orange plane (x1,y1,z1)
+# if (xL, yL, zL) is on the line between (x0, y0, z0) and (x1, y1, z1)
+# tL = (zL-z0) / (z1-z0) = (xL-x0) / (x1-x0) = (yL-y0) / (y1-y0)
+# xL = tL*(x1-x0) + x0
+# yL = tL*(y1-y0) + y0
+
 tl = (zl[None, None, :] - line01[0, ..., 2]) / (line01[1, ..., 2] - line01[0, ..., 2]) # (NNy, NNx, NNz)
 XL = tl*(line01[1, ..., 0] - line01[0, ..., 0]) + line01[0, ..., 0] # (NNy, NNx, NNz)
 YL = tl*(line01[1, ..., 1] - line01[0, ..., 1]) + line01[0, ..., 1] # (NNy, NNx, NNz)
 ZL = tl*(line01[1, ..., 2] - line01[0, ..., 2]) + line01[0, ..., 2] # (NNy, NNx, NNz)
-RL = np.stack([XL, YL, ZL], axis=3) # (NNz, NNy, NNx, 3)
+RL = np.stack([XL, YL, ZL], axis=3) # (NNy, NNx, NNz, 3)
 print('RL shape:', RL.shape)
 
 visRL = RL.reshape(NNz, -1, 3)*1e6 # in the unit of um
